@@ -44,7 +44,7 @@ export function NewAuditPage() {
       })
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message)
+        toast.error(error.issues[0].message)
       }
       return
     }

@@ -169,7 +169,7 @@ export function DebugPage() {
                     </Button>
                 </div>
 
-                {results.map((result, index) => (
+                {results.map((result) => (
                     <Card key={result.name}>
                         <CardHeader>
                             <div className="flex items-center justify-between">

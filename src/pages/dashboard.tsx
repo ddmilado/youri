@@ -31,9 +31,25 @@ const ScoreBadge = ({ score }: { score: number | null, label: string | null }) =
   else if (score >= 50) colorClass = "text-yellow-700 bg-yellow-50 border-yellow-200"
   else colorClass = "text-red-700 bg-red-50 border-red-200"
 
+
   return (
     <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
       <span className="font-semibold text-xs">{score}</span>
+    </div>
+  )
+}
+
+const StatusBadge = ({ status }: { status: string }) => {
+  let colorClass = "text-gray-600 bg-gray-100 border-gray-200"
+  if (status === 'completed') colorClass = "text-green-700 bg-green-50 border-green-200"
+  else if (status === 'processing') colorClass = "text-blue-700 bg-blue-50 border-blue-200"
+  else if (status === 'failed') colorClass = "text-red-700 bg-red-50 border-red-200"
+
+  const label = status.charAt(0).toUpperCase() + status.slice(1)
+
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
+      <span className="font-semibold text-xs">{label}</span>
     </div>
   )
 }

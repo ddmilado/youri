@@ -10,6 +10,7 @@ import { SignupPage } from '@/pages/signup'
 import { Toaster } from 'sonner'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { Analytics } from "@vercel/analytics/react"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -133,6 +134,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            <Analytics />
           </BrowserRouter>
           <Toaster position="top-right" richColors />
         </AuthProvider>

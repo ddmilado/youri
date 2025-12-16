@@ -2,7 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch' // We might need to check if we have this component
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/contexts/auth-context'
 import { User, Bell, Shield, Key } from 'lucide-react'

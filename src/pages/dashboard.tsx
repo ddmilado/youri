@@ -204,10 +204,10 @@ export function DashboardPage() {
                           </TableCell>
                           <TableCell>
                             {lead.contacts && lead.contacts.length > 0 ? (
-                              <dvi className="flex items-center gap-1 text-sm">
+                              <div className="flex items-center gap-1 text-sm">
                                 <Users className="h-3 w-3 text-muted-foreground" />
                                 {lead.contacts.length}
-                              </dvi>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">-</span>
                             )}

@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Download, Plus, Sparkles, ExternalLink, MapPin, MoreHorizontal } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { AIResultDialog } from '@/components/ai-result-dialog'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -35,6 +34,7 @@ function JobsPageContent() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'audits' | 'searches' | 'leads'>('leads')
   const [selectedLead, setSelectedLead] = useState<LeadResult | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const { data: jobs, isLoading: jobsLoading } = useQuery({
     queryKey: ['all-jobs', user?.id],

@@ -23,25 +23,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 
-type Job = Database['public']['Tables']['jobs']['Row']
-type LeadResult = Database['public']['Tables']['ai_lead_results']['Row']
-
-// Helper for status badges
-const StatusBadge = ({ status }: { status: string }) => {
-  const styles = {
-    completed: "bg-green-100 text-green-700 hover:bg-green-100/80 border-green-200",
-    processing: "bg-blue-100 text-blue-700 hover:bg-blue-100/80 border-blue-200",
-    failed: "bg-red-100 text-red-700 hover:bg-red-100/80 border-red-200",
-    pending: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100/80 border-yellow-200",
-  }
-  return (
-    <Badge variant="outline" className={`font-medium border ${styles[status as keyof typeof styles] || "bg-gray-100 text-gray-700"}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </Badge>
-  )
-}
-
-const ScoreBadge = ({ score, label }: { score: number | null, label: string | null }) => {
+const ScoreBadge = ({ score }: { score: number | null, label: string | null }) => {
   if (score === null) return <span className="text-muted-foreground">-</span>
 
   let colorClass = "text-gray-600 bg-gray-100"

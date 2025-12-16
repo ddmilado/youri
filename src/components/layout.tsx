@@ -53,7 +53,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-card border-r z-40 transition-transform duration-200",
+          "fixed top-0 left-0 h-full w-64 bg-muted/20 border-r z-40 transition-transform duration-200",
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}

@@ -23,6 +23,7 @@ const Dashboard = lazy(() => import('@/pages/dashboard').then(m => ({ default: m
 const NewAudit = lazy(() => import('@/pages/new-audit').then(m => ({ default: m.NewAuditPage })))
 const Report = lazy(() => import('@/pages/report').then(m => ({ default: m.ReportPage })))
 const Jobs = lazy(() => import('@/pages/jobs').then(m => ({ default: m.JobsPage })))
+const Settings = lazy(() => import('@/pages/settings').then(m => ({ default: m.SettingsPage })))
 const Debug = lazy(() => import('@/pages/debug').then(m => ({ default: m.DebugPage })))
 
 const LoadingFallback = () => (
@@ -112,6 +113,18 @@ function App() {
                     <Layout>
                       <Suspense fallback={<LoadingFallback />}>
                         <Jobs />
+                      </Suspense>
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Suspense fallback={<LoadingFallback />}>
+                        <Settings />
                       </Suspense>
                     </Layout>
                   </ProtectedRoute>

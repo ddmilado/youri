@@ -1,48 +1,80 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, TrendingUp, FileText, AlertCircle, Sparkles, ExternalLink, Building2 } from 'lucide-react'
+import { Plus, TrendingUp, Users, ExternalLink, Filter, Download, MoreHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase, type Database, getLeadResults } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
-import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 type Job = Database['public']['Tables']['jobs']['Row']
 type LeadResult = Database['public']['Tables']['ai_lead_results']['Row']
 
-const getIssueCount = (job: Job) => job.report?.issues?.length ?? job.report?.issuesCount ?? 0
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed': return 'bg-green-500/10 text-green-500'
-    case 'processing': return 'bg-blue-500/10 text-blue-500'
-    case 'failed': return 'bg-red-500/10 text-red-500'
-    default: return 'bg-gray-500/10 text-gray-500'
+// Helper for status badges
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles = {
+    completed: "bg-green-100 text-green-700 hover:bg-green-100/80 border-green-200",
+    processing: "bg-blue-100 text-blue-700 hover:bg-blue-100/80 border-blue-200",
+    failed: "bg-red-100 text-red-700 hover:bg-red-100/80 border-red-200",
+    pending: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100/80 border-yellow-200",
   }
+  return (
+    <Badge variant="outline" className={`font-medium border ${styles[status as keyof typeof styles] || "bg-gray-100 text-gray-700"}`}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Badge>
+  )
 }
 
-const getQualityColor = (label: string | null) => {
-  if (!label) return 'bg-gray-500/10 text-gray-500'
-  if (label.includes('High')) return 'bg-green-500/10 text-green-500'
-  if (label.includes('Medium')) return 'bg-yellow-500/10 text-yellow-500'
-  return 'bg-orange-500/10 text-orange-500'
+const ScoreBadge = ({ score, label }: { score: number | null, label: string | null }) => {
+  if (score === null) return <span className="text-muted-foreground">-</span>
+
+  let colorClass = "text-gray-600 bg-gray-100"
+  if (score >= 80) colorClass = "text-green-700 bg-green-50 border-green-200"
+  else if (score >= 50) colorClass = "text-yellow-700 bg-yellow-50 border-yellow-200"
+  else colorClass = "text-red-700 bg-red-50 border-red-200"
+
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
+      <span className="font-semibold text-xs">{score}</span>
+    </div>
+  )
 }
 
 export function DashboardPage() {
   const { user } = useAuth()
 
-  const { data: jobs, isLoading } = useQuery({
+  const firstName = user?.user_metadata?.full_name?.split(' ')[0] ||
+    user?.user_metadata?.name?.split(' ')[0] ||
+    user?.email?.split('@')[0] || ''
+
+  // Fetch recent jobs (Audits)
+  const { data: jobs, isLoading: isLoadingJobs } = useQuery({
     queryKey: ['jobs', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('jobs').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(5)
+      const { data, error } = await supabase.from('jobs').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(10)
       if (error) throw error
       return data
     },
     enabled: !!user,
   })
 
+  // Fetch AI Leads
   const { data: leadResults, isLoading: isLoadingLeads } = useQuery({
     queryKey: ['leadResults', user?.id],
     queryFn: async () => {
@@ -52,221 +84,220 @@ export function DashboardPage() {
     enabled: !!user,
   })
 
-  const { data: stats } = useQuery({
-    queryKey: ['stats', user?.id],
-    queryFn: async () => {
-      const { data: allJobs, error } = await supabase.from('jobs').select('*').eq('user_id', user?.id)
-      if (error) throw error
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const thisWeek = allJobs.filter((job) => new Date(job.created_at) >= weekAgo)
-      const completed = allJobs.filter((job) => job.status === 'completed')
-      const totalIssues = completed.reduce((sum, job) => sum + getIssueCount(job), 0)
-
-      // Lead stats
-      const totalLeads = leadResults?.length || 0
-
-      return {
-        total: allJobs.length,
-        thisWeek: thisWeek.length,
-        avgIssues: completed.length > 0 ? Math.round(totalIssues / completed.length) : 0,
-        totalLeads
-      }
-    },
-    enabled: !!user,
-  })
+  const stats = {
+    totalLeads: leadResults?.length || 0,
+    activeAudits: jobs?.filter(j => j.status === 'processing').length || 0,
+    completedAudits: jobs?.filter(j => j.status === 'completed').length || 0
+  }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Welcome back</h1>
-        <p className="text-muted-foreground text-lg">Discover high-quality leads with AI-powered analysis</p>
-      </div>
-
-      <div className="mb-8">
-        <Link to="/new">
-          <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-            <Sparkles className="mr-2 h-5 w-5" />
-            New AI Lead Analysis
+    <div className="flex flex-col h-screen bg-background text-foreground">
+      {/* Top Header - SaaS Style */}
+      <header className="flex h-16 items-center flex-shrink-0 gap-4 border-b bg-background px-6">
+        <div className="flex flex-col">
+          <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
+          <p className="text-xs text-muted-foreground hidden md:block">
+            Welcome back, {firstName}
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-4">
+          <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
           </Button>
-        </Link>
-      </div>
+          <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Link to="/new">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              New Analysis
+            </Button>
+          </Link>
+        </div>
+      </header>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {[
-          { title: 'Total Audits', icon: FileText, value: stats?.total || 0, desc: 'All time' },
-          { title: 'This Week', icon: TrendingUp, value: stats?.thisWeek || 0, desc: 'Audits completed' },
-          { title: 'Avg. Issues', icon: AlertCircle, value: stats?.avgIssues || 0, desc: 'Per audit' },
-          { title: 'AI Leads', icon: Building2, value: stats?.totalLeads || 0, desc: 'Generated', gradient: true }
-        ].map((stat, i) => (
-          <Card key={i} className={stat.gradient ? 'border-purple-200 dark:border-purple-800' : ''}>
+      {/* Main Content Area - Scrollable */}
+      <main className="flex-1 overflow-auto p-6">
+        {/* KPI Cards - Dense Row */}
+        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 mb-6">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.gradient ? 'text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`} />
+              <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                <>
-                  <div className={`text-3xl font-bold ${stat.gradient ? 'bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent' : ''}`}>{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.desc}</p>
-                </>
-              )}
+              <div className="text-2xl font-bold">{stats.totalLeads}</div>
             </CardContent>
           </Card>
-        ))}
-      </motion.div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Audits</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.activeAudits}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completedAudits}</div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* AI Lead Results Section */}
-      <Card className="mb-8 border-purple-200 dark:border-purple-800">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            <CardTitle>AI Lead Analysis Results</CardTitle>
+        {/* Main Data View - Tabs for Leads vs Audits */}
+        <Tabs defaultValue="leads" className="w-full">
+          <div className="flex items-center justify-between mb-4">
+            <TabsList>
+              <TabsTrigger value="leads">AI Leads</TabsTrigger>
+              <TabsTrigger value="audits">Recent Audits</TabsTrigger>
+            </TabsList>
           </div>
-          <CardDescription>AI-generated German market opportunities</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingLeads ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <Skeleton className="h-6 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : leadResults && leadResults.length > 0 ? (
-            <div className="space-y-4">
-              {leadResults.slice(0, 5).map((lead) => (
-                <div key={lead.id} className="p-4 rounded-lg border hover:bg-accent transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-medium">{lead.company}</h3>
-                        <Badge className={getQualityColor(lead.lead_quality_label)}>
-                          {lead.lead_quality_label || 'Unscored'}
-                        </Badge>
-                        {lead.lead_quality_score !== null && (
-                          <span className="text-sm text-muted-foreground">
-                            Score: {lead.lead_quality_score}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <a
-                          href={lead.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                        >
-                          {lead.website}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                      {lead.industry && (
-                        <p className="text-sm text-muted-foreground mb-1">Industry: {lead.industry}</p>
-                      )}
-                      {lead.markets && (
-                        <p className="text-sm text-muted-foreground mb-1">Markets: {lead.markets}</p>
-                      )}
-                      {lead.localization_evidence?.german_content_on_main_domain && (
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          🇩🇪 German Content Available
-                        </Badge>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {lead.contacts && lead.contacts.length > 0 && (
-                      <div className="ml-4 text-right">
-                        <div className="text-xl font-bold">{lead.contacts.length}</div>
-                        <div className="text-xs text-muted-foreground">contacts</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Sparkles className="mx-auto h-12 w-12 text-purple-400 mb-4" />
-              <p className="text-muted-foreground mb-4">No AI leads generated yet</p>
-              <Link to="/new">
-                <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate your first lead
-                </Button>
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Traditional Audits Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Audits</CardTitle>
-          <CardDescription>Your latest site inspections</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <Skeleton className="h-6 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : jobs && jobs.length > 0 ? (
-            <div className="space-y-4">
-              {jobs.map((job) => {
-                const issueCount = getIssueCount(job)
-                return (
-                  <Link key={job.id} to={job.status === 'completed' ? `/report/${job.id}` : '#'} className="block">
-                    <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-medium truncate">{job.title}</h3>
-                          <Badge className={getStatusColor(job.status)}>{job.status}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1 truncate">{job.url}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                        </p>
-                      </div>
-                      {job.status === 'completed' && issueCount > 0 && (
-                        <div className="ml-4 text-right">
-                          <div className="text-2xl font-bold">{issueCount}</div>
-                          <div className="text-xs text-muted-foreground">issues</div>
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-4">No audits yet</p>
-              <Link to="/new">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create your first audit
-                </Button>
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <TabsContent value="leads" className="m-0">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[300px]">Company</TableHead>
+                      <TableHead>Industry</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Contacts</TableHead>
+                      <TableHead>Verification</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingLeads ? (
+                      [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : leadResults && leadResults.length > 0 ? (
+                      leadResults.map((lead) => (
+                        <TableRow key={lead.id}>
+                          <TableCell>
+                            <div className="font-medium">{lead.company}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <a href={lead.website} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                                {lead.website.replace('https://', '').replace('http://', '').split('/')[0]}
+                                <ExternalLink className="h-2 w-2" />
+                              </a>
+                            </div>
+                          </TableCell>
+                          <TableCell>{lead.industry || '-'}</TableCell>
+                          <TableCell>
+                            <ScoreBadge score={lead.lead_quality_score} label={lead.lead_quality_label} />
+                          </TableCell>
+                          <TableCell>
+                            {lead.contacts && lead.contacts.length > 0 ? (
+                              <dvi className="flex items-center gap-1 text-sm">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                {lead.contacts.length}
+                              </dvi>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {lead.localization_evidence?.german_content_on_main_domain ? (
+                              <Badge variant="secondary" className="text-xs font-normal">
+                                🇩🇪 Verified
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Unverified</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          No leads found. Start a new analysis.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="audits" className="m-0">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Audit Title</TableHead>
+                      <TableHead>URL</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingJobs ? (
+                      [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : jobs && jobs.length > 0 ? (
+                      jobs.map((job) => (
+                        <TableRow key={job.id}>
+                          <TableCell className="font-medium">{job.title}</TableCell>
+                          <TableCell className="text-muted-foreground">{job.url}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={job.status} />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link to={job.status === 'completed' ? `/report/${job.id}` : '#'}>
+                              <Button variant="outline" size="sm">View</Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          No audits found. Create your first one.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+      </main>
     </div>
   )
 }

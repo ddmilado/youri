@@ -1,27 +1,32 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Database, getKeywordSearchResults, runAIWorkflow } from '@/lib/supabase'
+import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, getLeadResults } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Download, FileText, Plus, Search, Sparkles, ExternalLink } from 'lucide-react'
+import { Download, FileText, Plus, Search, Sparkles, ExternalLink, Building2, MapPin, Globe } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
+import { AIResultDialog } from '@/components/ai-result-dialog'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 type Job = Database['public']['Tables']['jobs']['Row']
 type KeywordResult = Database['public']['Tables']['keyword_search_results']['Row']
+type LeadResult = Database['public']['Tables']['ai_lead_results']['Row']
 type Issue = NonNullable<Job['report']>['issues'][number]
 
-export function JobsPage() {
+function JobsPageContent() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'audits' | 'searches'>('searches')
+  const [activeTab, setActiveTab] = useState<'audits' | 'searches' | 'leads'>('leads')
+  const [selectedLead, setSelectedLead] = useState<LeadResult | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const { data: jobs, isLoading: jobsLoading } = useQuery({
     queryKey: ['all-jobs', user?.id],
@@ -42,6 +47,15 @@ export function JobsPage() {
     enabled: !!user,
   })
 
+  const { data: leadResults, isLoading: leadsLoading } = useQuery({
+    queryKey: ['lead-results-history', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return []
+      return await getLeadResults(user.id)
+    },
+    enabled: !!user,
+  })
+
   const analyzeMutation = useMutation({
     mutationFn: async (result: KeywordResult) => {
       if (!user?.id) throw new Error('Not authenticated')
@@ -50,6 +64,7 @@ export function JobsPage() {
     onSuccess: () => {
       toast.success('Deep analysis started!')
       queryClient.invalidateQueries({ queryKey: ['keyword-results'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-results-history'] })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to start analysis')
@@ -63,6 +78,13 @@ export function JobsPage() {
       case 'failed': return 'bg-red-500/10 text-red-500'
       default: return 'bg-gray-500/10 text-gray-500'
     }
+  }
+
+  const getQualityColor = (label: string | null) => {
+    if (!label) return 'bg-gray-500/10 text-gray-500'
+    if (label.includes('High')) return 'bg-green-500/10 text-green-500'
+    if (label.includes('Medium')) return 'bg-yellow-500/10 text-yellow-500'
+    return 'bg-orange-500/10 text-orange-500'
   }
 
   const downloadPDF = async (job: Job) => {
@@ -133,38 +155,143 @@ export function JobsPage() {
     }
   }
 
-  const isLoading = activeTab === 'audits' ? jobsLoading : keywordLoading
-
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">History</h1>
-        <p className="text-muted-foreground text-lg">View all your searches and analyses</p>
+        <h1 className="text-4xl font-bold mb-2">Audit Results</h1>
+        <p className="text-muted-foreground text-lg">View all your searches, analyses, and audits</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-8 p-1 bg-muted rounded-lg max-w-md">
+      <div className="flex bg-muted rounded-lg max-w-2xl p-1 gap-1 mb-8 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('leads')}
+          className={`flex-1 min-w-[120px] py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'leads'
+            ? 'bg-white dark:bg-gray-800 shadow-sm text-primary'
+            : 'hover:bg-white/50 dark:hover:bg-gray-800/50 text-muted-foreground'
+            }`}
+        >
+          <Sparkles className="h-4 w-4" />
+          AI Analysis (Deep)
+        </button>
         <button
           onClick={() => setActiveTab('searches')}
-          className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'searches'
-              ? 'bg-white dark:bg-gray-800 shadow-sm'
-              : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
+          className={`flex-1 min-w-[120px] py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'searches'
+            ? 'bg-white dark:bg-gray-800 shadow-sm text-primary'
+            : 'hover:bg-white/50 dark:hover:bg-gray-800/50 text-muted-foreground'
             }`}
         >
           <Search className="h-4 w-4" />
-          <span className="font-medium">Keyword Searches</span>
+          Keyword Searches
         </button>
         <button
           onClick={() => setActiveTab('audits')}
-          className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'audits'
-              ? 'bg-white dark:bg-gray-800 shadow-sm'
-              : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
+          className={`flex-1 min-w-[120px] py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'audits'
+            ? 'bg-white dark:bg-gray-800 shadow-sm text-primary'
+            : 'hover:bg-white/50 dark:hover:bg-gray-800/50 text-muted-foreground'
             }`}
         >
           <FileText className="h-4 w-4" />
-          <span className="font-medium">Audits</span>
+          Site Audits
         </button>
       </div>
+
+      {/* AI Lead Results */}
+      {activeTab === 'leads' && (
+        <>
+          {leadsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-full" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : leadResults && leadResults.length > 0 ? (
+            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {leadResults.map((lead, index) => (
+                <motion.div
+                  key={lead.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => {
+                    setSelectedLead(lead)
+                    setDetailsOpen(true)
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Card className="h-full flex flex-col hover:shadow-lg transition-all hover:-translate-y-1 border-purple-200 dark:border-purple-900 group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <CardTitle className="text-lg line-clamp-1 group-hover:text-purple-600 transition-colors">{lead.company}</CardTitle>
+                        <Badge className={getQualityColor(lead.lead_quality_label)}>
+                          {lead.lead_quality_score ?? '?'}
+                        </Badge>
+                      </div>
+                      <div
+                        className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 mb-1 truncate"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <a href={lead.website} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                          <Globe className="h-3 w-3" />
+                          {lead.website.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {lead.industry && (
+                          <Badge variant="secondary" className="text-xs font-normal">
+                            {lead.industry}
+                          </Badge>
+                        )}
+                        {lead.hq_location && (
+                          <Badge variant="outline" className="text-xs font-normal flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {lead.hq_location.split(',')[0]}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col justify-end pt-0">
+                      <div className="text-xs text-muted-foreground mt-4 flex items-center justify-between">
+                        <span>
+                          {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+                        </span>
+                        {lead.localization_evidence?.german_content_on_main_domain && (
+                          <span className="flex items-center gap-1 text-green-600 dark:text-green-500 font-medium">
+                            🇩🇪 Verified
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Sparkles className="h-16 w-16 text-purple-200 mb-6" />
+                <h3 className="text-xl font-semibold mb-2">No AI Analyses Yet</h3>
+                <p className="text-muted-foreground mb-8 text-center max-w-md">
+                  Run a deep AI analysis on a company to see detailed insights about their tech stack, localization, and market fit.
+                </p>
+                <Link to="/new">
+                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600">
+                    <Plus className="mr-2 h-5 w-5" />
+                    Start New Analysis
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
 
       {/* Keyword Search Results */}
       {activeTab === 'searches' && (
@@ -331,6 +458,21 @@ export function JobsPage() {
           )}
         </>
       )}
+
+      {/* Detail Dialog */}
+      <AIResultDialog
+        lead={selectedLead}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </div>
+  )
+}
+
+export function JobsPage() {
+  return (
+    <ErrorBoundary>
+      <JobsPageContent />
+    </ErrorBoundary>
   )
 }

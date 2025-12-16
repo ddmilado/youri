@@ -42,16 +42,27 @@ serve(async (req) => {
             throw new Error('user_id is required')
         }
 
-        // Get OpenAI API key from environment
+        // Get API keys from environment
         const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+        const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY') || Deno.env.get('VITE_FIRECRAWL_API_KEY')
+
         if (!openaiApiKey) {
             throw new Error('OPENAI_API_KEY not configured')
         }
+        if (!firecrawlApiKey) {
+            console.error('FIRECRAWL_API_KEY missing')
+            throw new Error('FIRECRAWL_API_KEY not configured - required for real web search')
+        }
 
-        console.log('Starting keyword search workflow for:', input_as_text)
+        console.log('Starting real keyword search workflow for:', input_as_text)
 
-        // Call OpenAI to perform search
-        const searchResults = await performKeywordSearch(input_as_text, openaiApiKey)
+        // 1. Perform Real Web Search via Firecrawl
+        const rawSearchResults = await performFirecrawlSearch(input_as_text, firecrawlApiKey)
+        console.log(`Firecrawl returned ${rawSearchResults.length} raw results`)
+
+        // 2. Use OpenAI to Format and Filter Results
+        const cleanResults = await formatSearchResults(rawSearchResults, openaiApiKey)
+        console.log(`OpenAI formatted ${cleanResults.length} clean results`)
 
         // Save results to Supabase
         const supabaseClient = createClient(
@@ -59,7 +70,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        const resultsToInsert = searchResults.map((result: SearchResult) => ({
+        const resultsToInsert = cleanResults.map((result: SearchResult) => ({
             user_id,
             search_query: input_as_text,
             company_name: result.company_name,
@@ -69,23 +80,24 @@ serve(async (req) => {
             analysis_id: null
         }))
 
-        const { data, error: insertError } = await supabaseClient
-            .from('keyword_search_results')
-            .insert(resultsToInsert)
-            .select()
+        if (resultsToInsert.length > 0) {
+            const { data, error: insertError } = await supabaseClient
+                .from('keyword_search_results')
+                .insert(resultsToInsert)
+                .select()
 
-        if (insertError) {
-            console.error('Error saving to database:', insertError)
-            throw new Error(`Database error: ${insertError.message}`)
+            if (insertError) {
+                console.error('Error saving to database:', insertError)
+                throw new Error(`Database error: ${insertError.message}`)
+            }
+            console.log(`Saved ${data?.length} results to database`)
         }
-
-        console.log(`Keyword search completed: ${searchResults.length} results saved`)
 
         return new Response(
             JSON.stringify({
                 success: true,
-                results: data,
-                count: searchResults.length,
+                results: resultsToInsert,
+                count: resultsToInsert.length,
                 message: 'Keyword search completed successfully'
             }),
             {
@@ -109,42 +121,82 @@ serve(async (req) => {
 })
 
 /**
- * Perform keyword search using OpenAI API
- * Uses the same agent instructions from your Agent Builder
+ * Perform real web search using Firecrawl /v1/search API
  */
-async function performKeywordSearch(
-    keywords: string,
+async function performFirecrawlSearch(query: string, apiKey: string): Promise<any[]> {
+    console.log(`Calling Firecrawl Search API for: "${query}"`)
+
+    // Construct search query - optimizing for company discovery
+    // If the query is just a niche, add "companies" or "startups" to it? 
+    // Actually, trust the user's query but ensure it's broad enough.
+
+    try {
+        const response = await fetch('https://api.firecrawl.dev/v1/search', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query: query,
+                limit: 10,
+                scrapeOptions: {
+                    formats: ['markdown']
+                }
+            })
+        })
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            console.error('Firecrawl API Error:', errorText)
+            throw new Error(`Firecrawl Search API error: ${errorText}`)
+        }
+
+        const data = await response.json()
+
+        // Firecrawl search response structure: { success: true, data: [ { url, title, description, ... } ] }
+        if (!data.success || !data.data) {
+            console.warn('Firecrawl response success=false or missing data', data)
+            return []
+        }
+
+        return data.data
+    } catch (err) {
+        console.error('Firecrawl Search Exception:', err)
+        throw err
+    }
+}
+
+/**
+ * Use OpenAI to parse and format raw search results into clean company data
+ */
+async function formatSearchResults(
+    rawResults: any[],
     apiKey: string
 ): Promise<SearchResult[]> {
+    if (!rawResults || rawResults.length === 0) return []
 
-    console.log('Calling OpenAI for keyword search...')
+    console.log('Calling OpenAI to format search results...')
 
-    // Using the exact instructions from your Agent Builder agent
-    const systemPrompt = `You are a Google Search Scraper Agent.
+    const systemPrompt = `You are a Data Extraction Assistant.
+Your goal is to extract a list of DISTINCT COMPANIES from the provided search results.
 
-Your task is to:
-1. Accept user-provided keywords and Google search operators.
-2. Perform Google searches using those inputs.
-3. Extract organic result URLs only (ignore ads, maps, featured snippets).
-4. Return Minimum 10 results in a clean list of discovered URLs with:
-   - the Company's verified URL
-   - Page title (if available)
-   - Snippet (if available)
-   - Company Description/Details
+Input: JSON list of search results (url, title, description).
+Output: JSON list of valid companies.
 
-Do NOT analyze content.
-Do NOT validate language.
-Do NOT score leads.
-Do NOT return wikipedia links.
-ONLY RETURN REAL COMPANY WEBSITES
+Rules:
+1. Ignore directories, aggregators (like Yelp, Clutch, LinkedIn lists), and articles.
+2. Focus on REAL COMPANY websites (e.g. agency websites, saas product pages).
+3. Use the Snippet/Description to generate a brief 1-sentence Company Description.
+4. Normalize the Company Name.
 
-Your output must be structured JSON in this exact format:
+Output Format:
 {
   "results": [
     {
-      "url": "https://example.com",
-      "company_name": "Company Name",
-      "company_description": "Brief description of what the company does"
+        "url": "https://company.com", 
+        "company_name": "Company Name", 
+        "company_description": "Brief description..."
     }
   ]
 }`
@@ -156,27 +208,36 @@ Your output must be structured JSON in this exact format:
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o-mini', // Cheap and fast for formatting
             messages: [
                 { role: 'system', content: systemPrompt },
-                { role: 'user', content: keywords }
+                {
+                    role: 'user',
+                    content: `Here are the raw search results:\n${JSON.stringify(rawResults, null, 2)}`
+                }
             ],
-            temperature: 1,
-            max_tokens: 2048,
+            temperature: 0.3, // Low temp for extraction accuracy
             response_format: { type: 'json_object' }
         })
     })
 
     if (!response.ok) {
         const error = await response.text()
-        throw new Error(`OpenAI API error: ${error}`)
+        console.error('OpenAI Formatting Error:', error)
+        // Fallback: Try to map raw results directly if AI fails
+        return rawResults.map(r => ({
+            url: r.url,
+            company_name: r.title || 'Unknown',
+            company_description: r.description || ''
+        }))
     }
 
     const data = await response.json()
-    const content = data.choices[0]?.message?.content || '{}'
-
-    console.log('OpenAI response received')
-
-    const parsed = JSON.parse(content)
-    return parsed.results || []
+    try {
+        const parsed = JSON.parse(data.choices[0]?.message?.content || '{}')
+        return parsed.results || []
+    } catch (e) {
+        console.error('Error parsing OpenAI response:', e)
+        return []
+    }
 }

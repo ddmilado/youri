@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, TrendingUp, Users, ExternalLink, Filter, Download, MoreHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { supabase, type Database, getLeadResults } from '@/lib/supabase'
+import { supabase, getLeadResults } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { formatDistanceToNow } from 'date-fns'
 import {

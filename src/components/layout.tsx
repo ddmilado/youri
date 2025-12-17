@@ -43,7 +43,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
           <Menu className="h-5 w-5" />
         </Button>
-        <span className="ml-3 font-bold text-xl">SiteAudit</span>
+        <span className="ml-3 font-bold text-xl">YourInt AI</span>
         <div className="ml-auto">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -59,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="p-6">
-          <h1 className="text-2xl font-bold">SiteAudit</h1>
+          <h1 className="text-2xl font-bold">YourInt AI</h1>
         </div>
         <nav className="px-3 space-y-1">
           {navItems.map((item) => {

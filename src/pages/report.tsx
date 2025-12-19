@@ -233,49 +233,49 @@ export function ReportPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
 
       {/* Top Navigation */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-4 md:px-6 h-auto min-h-[4rem] flex flex-col md:flex-row items-center justify-between py-3 gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <Link to="/dashboard">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-8 px-2">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="ml-1 hidden sm:inline">Back</span>
             </Button>
           </Link>
-          <div className="hidden md:block w-px h-6 bg-border mx-2"></div>
-          <div className="flex flex-col">
-            <h1 className="text-sm font-semibold text-foreground">{job.title}</h1>
-            <p className="text-xs text-muted-foreground">{job.url}</p>
+          <div className="hidden md:block w-px h-6 bg-border mx-1"></div>
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-sm font-semibold text-foreground truncate max-w-[150px] sm:max-w-[300px]">{job.title}</h1>
+            <p className="text-[10px] text-muted-foreground truncate max-w-[150px] sm:max-w-[300px]">{job.url}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={isExporting}>
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-            Export PDF
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={isExporting} className="h-8 text-xs">
+            {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+            Export
           </Button>
           <a href={job.url.startsWith('http') ? job.url : `https://${job.url}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <ExternalLink className="h-4 w-4" />
             </Button>
           </a>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-6 space-y-8" ref={reportRef}>
+      <main className="max-w-5xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8" ref={reportRef}>
 
         {/* OVERVIEW HERO */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <Card className="border-none shadow-md overflow-hidden bg-gradient-to-br from-indigo-900 to-slate-900 text-white">
             <div className="absolute top-0 right-0 p-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <CardContent className="p-8 relative z-10">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="flex-1">
+            <CardContent className="p-6 md:p-8 relative z-10">
+              <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+                <div className="flex-1 w-full">
                   <Badge className="mb-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 border-none">Analysis Complete</Badge>
-                  <h2 className="text-3xl font-bold mb-4 text-white">Audit Overview</h2>
-                  <p className="text-slate-200 leading-relaxed text-lg opacity-90">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white">Audit Overview</h2>
+                  <p className="text-slate-200 leading-relaxed text-base md:text-lg opacity-90">
                     {report?.overview || "No overview available for this audit."}
                   </p>
 
-                  <div className="mt-6 flex flex-wrap gap-4 text-sm text-slate-300">
+                  <div className="mt-6 flex flex-wrap gap-4 text-[10px] md:text-sm text-slate-300">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                       <span>Verified on {new Date(job.created_at).toLocaleDateString()}</span>
@@ -287,10 +287,10 @@ export function ReportPage() {
                   </div>
                 </div>
 
-                {/* Score Card (Mock Calculation for Visuals) */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center min-w-[200px] border border-white/10">
+                {/* Score Card */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center w-full md:min-w-[200px] md:w-auto border border-white/10 mt-4 md:mt-0">
                   <span className="text-slate-300 text-sm font-medium mb-2">Audit Score</span>
-                  <div className="text-5xl font-bold text-white mb-1">
+                  <div className="text-4xl md:text-5xl font-bold text-white mb-1">
                     {job.status === 'completed' ? 85 : 0}
                     <span className="text-lg text-slate-400 font-normal">/100</span>
                   </div>
@@ -343,7 +343,7 @@ export function ReportPage() {
                               </div>
                             </div>
                           </AccordionTrigger>
-                          <AccordionContent className="pt-0 pb-4 pl-8">
+                          <AccordionContent className="pt-0 pb-4 pl-4 md:pl-8">
                             <div className="space-y-3 text-sm text-muted-foreground">
                               <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md border border-slate-100 dark:border-slate-800">
                                 <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">Analysis & Source:</p>

@@ -91,14 +91,14 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Top Header - SaaS Style */}
-      <header className="flex h-16 items-center flex-shrink-0 gap-4 border-b bg-background px-6 shadow-sm">
-        <div className="flex flex-col">
-          <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
-          <p className="text-xs text-muted-foreground hidden md:block">
+      <header className="flex h-auto min-h-[4rem] items-center flex-shrink-0 gap-4 border-b bg-background px-4 md:px-6 py-4 shadow-sm flex-wrap">
+        <div className="flex flex-col min-w-0 flex-1">
+          <h1 className="text-lg font-semibold md:text-xl truncate">Dashboard</h1>
+          <p className="text-xs text-muted-foreground hidden md:block truncate">
             Welcome back, {firstName}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button variant="outline" size="sm" className="hidden sm:flex">
             <Filter className="mr-2 h-4 w-4" />
             Filter
@@ -108,8 +108,8 @@ export function DashboardPage() {
             Export
           </Button>
           <Link to="/new">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap">
+              <Plus className="mr-1 h-3.5 w-3.5 md:mr-2 md:h-4 md:w-4" />
               New Analysis
             </Button>
           </Link>
@@ -168,9 +168,9 @@ export function DashboardPage() {
           </div>
 
           <TabsContent value="leads" className="m-0">
-            <Card>
-              <CardContent className="p-0">
-                <Table>
+            <Card className="overflow-hidden">
+              <CardContent className="p-0 overflow-x-auto">
+                <Table className="min-w-[700px] md:min-w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[300px]">Company</TableHead>
@@ -249,9 +249,9 @@ export function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="audits" className="m-0">
-            <Card>
-              <CardContent className="p-0">
-                <Table>
+            <Card className="overflow-hidden">
+              <CardContent className="p-0 overflow-x-auto">
+                <Table className="min-w-[600px] md:min-w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Audit Title</TableHead>

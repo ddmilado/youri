@@ -93,41 +93,41 @@ export function NewAuditPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-2xl mx-auto min-h-screen flex items-center">
+    <div className="p-4 md:p-6 lg:p-8 max-w-2xl mx-auto min-h-screen flex items-center">
       <Card className="w-full">
-        <CardHeader>
-          <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center mb-4">
-            <Sparkles className="h-6 w-6 text-white" />
+        <CardHeader className="p-4 md:p-6 pb-0 md:pb-6">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-600 rounded-lg flex items-center justify-center mb-4">
+            <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-white" />
           </div>
-          <CardTitle className="text-3xl">AI Lead Discovery</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl md:text-3xl">AI Lead Discovery</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             Choose your workflow: Quick keyword search or deep URL analysis
           </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Workflow Type Tabs */}
-          <div className="flex gap-2 mb-6 p-1 bg-muted rounded-lg">
+          <div className="flex gap-1 md:gap-2 mb-6 p-1 bg-muted rounded-lg">
             <button
               type="button"
               onClick={() => setWorkflowType('keyword')}
-              className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${workflowType === 'keyword'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'keyword'
                 ? 'bg-white dark:bg-gray-800 shadow-sm'
                 : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
                 }`}
             >
               <Search className="h-4 w-4" />
-              <span className="font-medium">Keyword Search</span>
+              <span className="font-medium text-xs md:text-sm">Keyword Search</span>
             </button>
             <button
               type="button"
               onClick={() => setWorkflowType('url')}
-              className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${workflowType === 'url'
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'url'
                 ? 'bg-white dark:bg-gray-800 shadow-sm'
                 : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
                 }`}
             >
               <LinkIcon className="h-4 w-4" />
-              <span className="font-medium">URL Analysis</span>
+              <span className="font-medium text-xs md:text-sm">URL Analysis</span>
             </button>
           </div>
 
@@ -156,7 +156,7 @@ export function NewAuditPage() {
               </p>
             </div>
 
-            <div className={`rounded-lg p-4 border ${workflowType === 'keyword'
+            <div className={`rounded-lg p-3 md:p-4 border ${workflowType === 'keyword'
               ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
               : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
               }`}>

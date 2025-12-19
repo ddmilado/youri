@@ -58,25 +58,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
           'lg:translate-x-0'
         )}
       >
-        <div className="p-6">
+        <div className="p-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">SiteAudit</h1>
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+            <Plus className="h-5 w-5 rotate-45" />
+          </Button>
         </div>
         <nav className="px-3 space-y-1">
-           {navItems.map((item) => {
-             const isActive = location.pathname.startsWith(item.path)
-             return (
-               <Link key={item.path} to={item.path}>
-                 <Button
-                   variant={isActive ? 'secondary' : 'ghost'}
-                   className={cn('w-full justify-start', isActive && 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium')}
-                 >
-                   <item.icon className="mr-3 h-5 w-5" />
-                   {item.label}
-                 </Button>
-               </Link>
-             )
-           })}
-         </nav>
+          {navItems.map((item) => {
+            const isActive = location.pathname.startsWith(item.path)
+            return (
+              <Link key={item.path} to={item.path}>
+                <Button
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', isActive && 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium')}
+                >
+                  <item.icon className="mr-3 h-5 w-5" />
+                  {item.label}
+                </Button>
+              </Link>
+            )
+          })}
+        </nav>
         <div className="absolute bottom-6 left-3 right-3 space-y-2">
           <Button variant="ghost" className="w-full justify-start hidden lg:flex" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun className="mr-3 h-5 w-5" /> : <Moon className="mr-3 h-5 w-5" />}

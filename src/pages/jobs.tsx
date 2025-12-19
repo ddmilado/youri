@@ -109,11 +109,11 @@ function JobsPageContent() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <div className="flex h-16 items-center border-b border-border px-6 bg-background flex-shrink-0 shadow-sm">
-        <h1 className="text-lg font-semibold md:text-xl">Audit Results</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Link to="/new">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+      <div className="flex flex-col md:flex-row md:h-16 items-center border-b border-border px-4 md:px-6 bg-background flex-shrink-0 shadow-sm py-4 md:py-0 gap-4">
+        <h1 className="text-lg font-semibold md:text-xl w-full md:w-auto text-left">Audit Results</h1>
+        <div className="ml-auto flex items-center gap-2 w-full md:w-auto justify-end">
+          <Link to="/new" className="w-full md:w-auto">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white w-full md:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               New Project
             </Button>
@@ -139,11 +139,11 @@ function JobsPageContent() {
           </Tabs>
         </div>
 
-        <Card>
-          <CardContent className="p-0">
+        <Card className="overflow-hidden">
+          <CardContent className="p-0 overflow-x-auto">
             {/* AI LEADS TABLE */}
             {activeTab === 'leads' && (
-              <Table>
+              <Table className="min-w-[700px] md:min-w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[300px]">Company</TableHead>
@@ -204,7 +204,7 @@ function JobsPageContent() {
 
             {/* SEARCHES TABLE */}
             {activeTab === 'searches' && (
-              <Table>
+              <Table className="min-w-[800px] md:min-w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[300px]">Company</TableHead>
@@ -269,7 +269,7 @@ function JobsPageContent() {
 
             {/* AUDITS TABLE */}
             {activeTab === 'audits' && (
-              <Table>
+              <Table className="min-w-[600px] md:min-w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Audit Name</TableHead>

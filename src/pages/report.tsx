@@ -421,23 +421,23 @@ export function ReportPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Industry:</span>
-                      <span className="font-medium">{report.companyInfo.industry || '-'}</span>
+                      <span className="font-medium text-right">{report.companyInfo.industry || 'Not found'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">HQ:</span>
-                      <span className="font-medium">{report.companyInfo.hq_location || '-'}</span>
+                      <span className="font-medium text-right">{report.companyInfo.hq_location || 'Not found'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Founded:</span>
-                      <span className="font-medium">{report.companyInfo.founded || '-'}</span>
+                      <span className="font-medium text-right">{report.companyInfo.founded || 'Not found'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Size:</span>
-                      <span className="font-medium">{report.companyInfo.employees || '-'}</span>
+                      <span className="font-medium text-right">{report.companyInfo.employees || 'Not found'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue:</span>
-                      <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold">{report.companyInfo.revenue || '-'}</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold text-right">{report.companyInfo.revenue || 'Not found'}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -462,19 +462,21 @@ export function ReportPage() {
                         <div className="flex items-center justify-between">
                           <div className="font-medium text-sm">{contact.name}</div>
                           <div className="flex gap-2">
-                            {contact.linkedin && (
+                            {contact.linkedin && !contact.linkedin.toLowerCase().includes('not found') && (
                               <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
                                 <Linkedin className="h-3.5 w-3.5" />
                               </a>
                             )}
-                            {contact.email && (
+                            {contact.email && !contact.email.toLowerCase().includes('not found') && (
                               <a href={`mailto:${contact.email}`} className="text-slate-500 hover:text-slate-700">
                                 <Mail className="h-3.5 w-3.5" />
                               </a>
                             )}
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">{contact.title}</div>
+                        <div className="text-xs text-muted-foreground italic">
+                          {contact.title === 'Not found' ? 'Role not identified' : contact.title}
+                        </div>
                       </div>
                     ))}
                   </div>

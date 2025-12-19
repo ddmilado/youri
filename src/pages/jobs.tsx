@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Download, Plus, Sparkles, ExternalLink, MapPin, MoreHorizontal } from 'lucide-react'
+import { Download, Plus, Sparkles, ExternalLink, MapPin, MoreHorizontal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AIResultDialog } from '@/components/ai-result-dialog'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -67,12 +67,18 @@ function JobsPageContent() {
   const analyzeMutation = useMutation({
     mutationFn: async (result: KeywordResult) => {
       if (!user?.id) throw new Error('Not authenticated')
-      return await runAIWorkflow(result.website, user.id)
+      const data = await runAIWorkflow(result.website, user.id)
+      // Link the result to the job
+      if (data?.job_id) {
+        await linkAnalysis(result.id, data.job_id)
+      }
+      return data
     },
     onSuccess: () => {
-      toast.success('Deep analysis started!')
+      toast.success('Deep audit completed successfully!')
       queryClient.invalidateQueries({ queryKey: ['keyword-results'] })
       queryClient.invalidateQueries({ queryKey: ['lead-results-history'] })
+      queryClient.invalidateQueries({ queryKey: ['all-jobs'] })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to start analysis')
@@ -238,8 +244,17 @@ function JobsPageContent() {
                               variant="secondary"
                               onClick={() => analyzeMutation.mutate(result)}
                               disabled={analyzeMutation.isPending}
+                              className="min-w-[100px]"
                             >
-                              <Sparkles className="mr-1 h-3 w-3" /> Analyze
+                              {analyzeMutation.isPending && analyzeMutation.variables?.id === result.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Analyzing...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="mr-1 h-3 w-3" /> Analyze
+                                </>
+                              )}
                             </Button>
                           )}
                         </TableCell>

@@ -140,7 +140,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                         url: targetUrl,
-                        limit: 5, // Limit pages to save time/cost for demo
+                        limit: 10, // Increased limit to find contact/legal pages better
                         scrapeOptions: {
                             formats: ['markdown'],
                             onlyMainContent: true
@@ -242,91 +242,123 @@ async function executeAuditWorkflow(
     apiKey: string
 ): Promise<JobReport> {
 
-    const messages: Array<{ role: string; content: string }> = [
-        {
-            role: 'user',
-            content: `Analyze this website: ${url}\n\n[CONTEXT START]\n${scrapedContent.substring(0, 50000)}\n[CONTEXT END]`
-        }
+    const baseContext = `Analyze this website: ${url}\n\n[CONTEXT START]\n${scrapedContent.substring(0, 30000)}\n[CONTEXT END]`
+
+    // 1. Impressum & AGB Specialist
+    const agent1Instruction = `You are a German Legal Specialist. Focus on Impressum (Provider ID) and AGB (Terms). 
+    Identify every missing mandatory element or non-compliant practice.
+    For each issue found, provide:
+    - Problem: Concise title
+    - Explanation: Why it's a problem (source needed)
+    - Recommendation: How to fix it
+    - Severity: high/medium/low`
+
+    // 2. Consumer Rights Specialist (Widerruf & Shipping)
+    const agent2Instruction = `You are a Consumer Rights Expert. Focus on Right of Withdrawal (Widerrufsbelehrung) and Shipping costs/transparency.
+    Identify every non-compliant practice or lack of transparency.
+    For each issue found, provide:
+    - Problem: Concise title
+    - Explanation: Why it's a problem (source needed)
+    - Recommendation: How to fix it
+    - Severity: high/medium/low`
+
+    // 3. Privacy Specialist (DSGVO)
+    const agent3Instruction = `You are a Data Privacy Auditor (GDPR/DSGVO). Focus on Privacy Statements, Cookies, and Newsletters.
+    Identify every missing requirement or dark pattern.
+    For each issue found, provide:
+    - Problem: Concise title
+    - Explanation: Why it's a problem (source needed)
+    - Recommendation: How to fix it
+    - Severity: high/medium/low`
+
+    // 4. UX & Sales Specialist (CTR Killers)
+    const agent4Instruction = `You are a Conversion Expert (CTR Killers). Focus on usability, language consistency, and trust signals.
+    Identify every barrier to conversion or professionalism.
+    For each issue found, provide:
+    - Problem: Concise title
+    - Explanation: Why it's a problem
+    - Recommendation: How to fix it
+    - Severity: high/medium/low`
+
+    // 5. Business Intelligence Specialist
+    const agent5Instruction = `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue. 
+    Find key leadership names, titles, LinkedIn profiles, and emails. Use "Not found" for missing fields.`
+
+    // 6. Localization Specialist
+    const agent6Instruction = `You are a German Localization Expert. 
+    1. Detect if a separate German version exists:
+       - URL Patterns: Presence of /de/, /de-de/, or de. subdomains (e.g. website.nl/de or website.com/de).
+       - Visual Elements: Presence of a Language Switcher (Flags, Dropdowns) or hreflang="de" tags in the HTML.
+    2. Judge "Poor German Localization" signals:
+       - Detect grammar errors, mixed languages (EN/DE), machine translation feel.
+       - IMPORTANT: Provide specific examples of translation errors or awkward phrasing found.
+    
+    For each issue found, provide:
+    - Problem: Concise title
+    - Explanation: Why it's a problem (and examples of poor localization)
+    - Recommendation: How to fix it
+    - Severity: high/medium/low`
+
+    console.log('Starting granular parallel analysis (6 Agents)...')
+
+    const [res1, res2, res3, res4, res5, res6] = await Promise.all([
+        callOpenAI(apiKey, agent1Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini'),
+        callOpenAI(apiKey, agent2Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini'),
+        callOpenAI(apiKey, agent3Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini'),
+        callOpenAI(apiKey, agent4Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini'),
+        callOpenAI(apiKey, agent5Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini'),
+        callOpenAI(apiKey, agent6Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini')
+    ])
+
+    console.log('Granular analysis complete. Compiling final report...')
+
+    const compilerMessages = [
+        { role: 'user', content: baseContext },
+        { role: 'assistant', content: `Impressum & AGB Analysis: ${res1}` },
+        { role: 'assistant', content: `Consumer Rights & Shipping Analysis: ${res2}` },
+        { role: 'assistant', content: `Privacy Analysis: ${res3}` },
+        { role: 'assistant', content: `UX & CTR Analysis: ${res4}` },
+        { role: 'assistant', content: `Company Research: ${res5}` },
+        { role: 'assistant', content: `German Localization Analysis: ${res6}` }
     ]
 
-    // Agent 1: Legal & Compliance
-    console.log('Agent 1: Legal & Compliance')
-    const agent1Instruction = `You are a German Legal Compliance Auditor for E-commerce.
-    Analyze the provided website content for compliance with German laws (Impressum, Dataprivacy, AGB/Terms, Withdrawal Rights).
-    Identify missing mandatory information (e.g. Handelsregister, VAT ID, Responsible Person, etc).
+    const compilerInstruction = `You are the Lead Auditor. Combine the provided analyses into a single, comprehensive JSON Deep Audit Report.
+    Your goal is to produce a report with the same depth and structure as a professional manual audit.
     
-    Output a detailed analysis of the legal texts.`
-    const res1 = await callOpenAI(apiKey, agent1Instruction, messages)
-    messages.push({ role: 'assistant', content: res1 })
-
-    // Agent 2: UX & Conversion
-    console.log('Agent 2: UX & Conversion')
-    const agent2Instruction = `You are an UX Expert.
-    Analyze the website for conversion optimization and user experience issues, specifically for the German market.
-    Look at: Language consistency, Trust signals, Shipping transparency, Payment options visibility.
+    IMPORTANT: You MUST extract every specific problem identified by the specialists and format it into the "findings" array for the appropriate section.
     
-    Output a detailed analysis.`
-    const res2 = await callOpenAI(apiKey, agent2Instruction, messages)
-    messages.push({ role: 'assistant', content: res2 })
-
-    // Agent 3: Company & Contact Discovery
-    console.log('Agent 3: Company & Contact Discovery')
-    const agent3Instruction = `You are a Business Intelligence Researcher.
-    Extract detailed information about the company behind this website:
-    - Official Company Name
-    - Industry/Niche
-    - Headquarters Location
-    - Year Founded
-    - Employee Count (approximate)
-    - Revenue (approximate, if available)
-    - Key People: Extract names and job titles of company leaders, founders, or key management mentioned on the site or in legal texts.
-    
-    Output a detailed summary of the company profile and leadership.`
-    const res3 = await callOpenAI(apiKey, agent3Instruction, messages)
-    messages.push({ role: 'assistant', content: res3 })
-
-    // Agent 4: Structure & Compile
-    console.log('Agent 4: Compiler')
-    const agent4Instruction = `You are the Lead Auditor.
-    Based on the previous analyses, compile a Final Deep Audit Report in JSON format.
-    
-    The structure MUST be exactly:
+    Structure:
     {
-      "overview": "Executive summary of the audit state.",
+      "overview": "Detailed executive summary of the site's overall quality and legal risk.",
       "companyInfo": {
-        "name": "Full Company Name",
-        "industry": "Industry description",
-        "hq_location": "City, Country",
-        "founded": 1999,
-        "employees": "11-50",
-        "revenue": "€1M-€5M",
-        "contacts": [
-          { "name": "John Doe", "title": "CEO", "linkedin": "optional", "email": "optional" }
-        ]
+        "name": "...", "industry": "...", "hq_location": "...", "founded": 1999 | null, "employees": "...", "revenue": "...", 
+        "contacts": [{ "name": "...", "title": "...", "linkedin": "...", "email": "..." }]
       },
       "sections": [
-        {
-          "title": "Section Title (e.g. Legal, UX, etc)",
+        { 
+          "title": "Section Title", 
           "findings": [
             {
-              "problem": "...",
-              "explanation": "...",
-              "recommendation": "...",
+              "problem": "Concise title of the issue",
+              "explanation": "Detailed explanation of WHY this is a problem, referencing sources like GDPR, IHK, or IONOS where mentioned by specialists.",
+              "recommendation": "Step-by-step action to fix the issue.",
               "severity": "high" | "medium" | "low"
             }
-          ]
+          ] 
         }
       ],
-      "conclusion": "Final concluding remarks.",
-      "actionList": ["Action item 1", "Action item 2"]
+      "conclusion": "Final wrap-up.",
+      "actionList": ["Action 1", "Action 2", ...]
     }
     
-    Return ONLY valid JSON. match the structure perfectly.`
+    The sections SHOULD include: "Impressum & AGB", "Consumer Rights & Returns", "Shipping & Delivery", "Data Privacy (GDPR)", "UX & CTR Killers", and "German Localization".
+    
+    Return ONLY valid JSON. Ensure NO sections have empty findings if the specialists provided issues.`
 
-    const res4 = await callOpenAI(apiKey, agent4Instruction, messages, 'gpt-4o') // Use gpt-4o for better JSON structure
+    const resCompiler = await callOpenAI(apiKey, compilerInstruction, compilerMessages, 'gpt-4o')
 
     try {
-        let cleanJson = res4.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
+        let cleanJson = resCompiler.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
         const parsed = JSON.parse(cleanJson)
         const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
         return { ...parsed, issuesCount: totalFindings }

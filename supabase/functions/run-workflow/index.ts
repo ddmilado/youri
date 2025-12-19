@@ -15,32 +15,22 @@ interface WorkflowInput {
     user_id: string
 }
 
-interface LeadResult {
-    company: string
-    website: string
-    industry: string
-    hq_location: string
-    founded: number | null
-    employees: string
-    markets: string
-    revenue_2023_eur: string
-    linkedIn: string
-    twitter: string
-    contacts: Array<{
-        name: string
-        title: string
-        linkedin: string
-        email: string
+interface AuditSection {
+    title: string
+    findings: Array<{
+        problem: string
+        explanation: string
+        recommendation: string
+        severity: 'high' | 'medium' | 'low'
     }>
-    lead_quality_label: string
-    lead_quality_score: number | null
-    localization_evidence: {
-        tld: string
-        language_options: string
-        german_content_on_main_domain: boolean
-        localization_quality_on_english_page: string
-    }
-    notes: string
+}
+
+interface JobReport {
+    overview: string
+    sections: AuditSection[]
+    conclusion: string
+    actionList: string[]
+    issuesCount?: number
 }
 
 serve(async (req) => {
@@ -75,19 +65,55 @@ serve(async (req) => {
             throw new Error('FIRECRAWL_API_KEY not configured')
         }
 
-        console.log('Starting OpenAI workflow for input:', input_as_text)
+        console.log('Starting Deep Audit workflow for input:', input_as_text)
 
-        // Step 1: Crawl the entire website with Firecrawl for comprehensive content
-        let scrapedContent = ''
+        // Initialize Supabase Client
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+
+        // Step 0: Create initial Job entry
+        let jobTitle = input_as_text
         const urlMatch = input_as_text.match(/(https?:\/\/[^\s]+)/i)
+        const targetUrl = urlMatch ? urlMatch[1] : input_as_text
 
-        if (urlMatch) {
-            const url = urlMatch[1]
-            console.log('Crawling entire website with Firecrawl:', url)
+        // Attempt to clean title from URL
+        try {
+            const urlObj = new URL(targetUrl)
+            jobTitle = urlObj.hostname
+        } catch (e) { }
+
+        const { data: job, error: jobError } = await supabaseClient
+            .from('jobs')
+            .insert({
+                user_id,
+                title: jobTitle,
+                url: targetUrl,
+                status: 'processing'
+            })
+            .select()
+            .single()
+
+        if (jobError) {
+            throw new Error(`Failed to create job: ${jobError.message}`)
+        }
+
+        const jobId = job.id
+        console.log(`Job created with ID: ${jobId}`)
+
+        // Start processing in background (but we wait for it here in this sync version for simplicity/demo)
+        // In a real prod environment, you might decouple this.
+
+        // Step 1: Crawl the entire website with Firecrawl
+        let scrapedContent = ''
+        let screenshotUrl = null
+
+        if (targetUrl) {
+            console.log('Crawling website:', targetUrl)
 
             try {
                 // Start the crawl job
-                // Using v1 API which is stable
                 const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
                     method: 'POST',
                     headers: {
@@ -95,8 +121,8 @@ serve(async (req) => {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        url: url,
-                        limit: 10,
+                        url: targetUrl,
+                        limit: 5, // Limit pages to save time/cost for demo
                         scrapeOptions: {
                             formats: ['markdown'],
                             onlyMainContent: true
@@ -108,43 +134,33 @@ serve(async (req) => {
                     console.error('Firecrawl crawl start failed:', await crawlResponse.text())
                 } else {
                     const crawlData = await crawlResponse.json()
-                    const jobId = crawlData.id || crawlData.jobId
-                    console.log('Crawl job started:', jobId)
+                    const crawlJobId = crawlData.id || crawlData.jobId
+                    console.log('Crawl job started:', crawlJobId)
 
-                    if (jobId) {
+                    if (crawlJobId) {
                         // Poll for crawl completion
                         let attempts = 0
-                        const maxAttempts = 45 // Wait up to 90 seconds (45 * 2s)
-
+                        const maxAttempts = 30 // 60 seconds max
                         while (attempts < maxAttempts) {
-                            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+                            await new Promise(resolve => setTimeout(resolve, 2000))
 
-                            const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${jobId}`, {
-                                headers: {
-                                    'Authorization': `Bearer ${firecrawlApiKey}`
-                                }
+                            const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${crawlJobId}`, {
+                                headers: { 'Authorization': `Bearer ${firecrawlApiKey}` }
                             })
 
                             if (statusResponse.ok) {
                                 const statusData = await statusResponse.json()
-                                console.log('Crawl status:', statusData.status)
-
                                 if (statusData.status === 'completed') {
-                                    console.log('Crawl completed! Pages found:', statusData.data?.length || 0)
-
-                                    // Combine content from all crawled pages
+                                    console.log('Crawl completed! Pages:', statusData.data?.length)
+                                    // Combine content
                                     const pages = statusData.data || []
                                     scrapedContent = pages.map((page: any) => {
-                                        const pageUrl = page.metadata?.url || page.url || ''
-                                        const content = page.markdown || page.content || ''
-                                        return `\n\n=== PAGE: ${pageUrl} ===\n${content}`
+                                        return `\n\n=== PAGE: ${page.metadata?.url || 'Unknown'} ===\n${page.markdown || ''}`
                                     }).join('\n\n')
                                     break
                                 } else if (statusData.status === 'failed') {
-                                    console.error('Crawl failed:', statusData.error)
                                     break
                                 }
-                                // Otherwise status is 'active' or 'scraping', continue polling
                             }
                             attempts++
                         }
@@ -155,51 +171,32 @@ serve(async (req) => {
             }
         }
 
-        // Execute the workflow using OpenAI API with real crawled content
-        const workflowResult = await executeAgentWorkflow(input_as_text, scrapedContent, openaiApiKey)
-
-        // Save result to Supabase
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        const { data, error: insertError } = await supabaseClient
-            .from('ai_lead_results')
-            .insert({
-                user_id,
-                input_query: input_as_text,
-                company: workflowResult.company,
-                website: workflowResult.website,
-                industry: workflowResult.industry,
-                hq_location: workflowResult.hq_location,
-                founded: workflowResult.founded,
-                employees: workflowResult.employees,
-                markets: workflowResult.markets,
-                revenue_2023_eur: workflowResult.revenue_2023_eur,
-                linkedin: workflowResult.linkedIn,
-                twitter: workflowResult.twitter,
-                contacts: workflowResult.contacts,
-                lead_quality_label: workflowResult.lead_quality_label,
-                lead_quality_score: workflowResult.lead_quality_score,
-                localization_evidence: workflowResult.localization_evidence,
-                notes: workflowResult.notes
-            })
-            .select()
-            .single()
-
-        if (insertError) {
-            console.error('Error saving to database:', insertError)
-            throw new Error(`Database error: ${insertError.message}`)
+        if (!scrapedContent) {
+            scrapedContent = "Could not crawl content. Proceeding with limited analysis."
         }
 
-        console.log('Workflow completed successfully, saved with ID:', data.id)
+        // Execute the Deep Audit Agent Workflow
+        const auditReport = await executeAuditWorkflow(targetUrl, scrapedContent, openaiApiKey)
+
+        // Update Job with result
+        const { error: updateError } = await supabaseClient
+            .from('jobs')
+            .update({
+                status: 'completed',
+                report: auditReport,
+                completed_at: new Date().toISOString()
+            })
+            .eq('id', jobId)
+
+        if (updateError) {
+            console.error('Error updating job:', updateError)
+        }
 
         return new Response(
             JSON.stringify({
                 success: true,
-                result: data,
-                message: 'Workflow completed successfully'
+                job_id: jobId,
+                message: 'Audit completed successfully'
             }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -221,199 +218,79 @@ serve(async (req) => {
     }
 })
 
-/**
- * Execute the multi-agent workflow using OpenAI API
- * Replicates the sequential agent structure with accumulated conversation history
- */
-async function executeAgentWorkflow(
-    input: string,
+async function executeAuditWorkflow(
+    url: string,
     scrapedContent: string,
     apiKey: string
-): Promise<LeadResult> {
+): Promise<JobReport> {
 
-    // Initialize conversation history with user input and scraped content
-    // This allows all agents to see the context
-    // We truncate content to ~40k chars to be safe for 128k context window while allowing space for history
     const messages: Array<{ role: string; content: string }> = [
         {
             role: 'user',
-            content: `User Input: ${input}\n\n[CONTEXT: Scraped Website Content Start]\n${scrapedContent.substring(0, 40000)}\n[CONTEXT: Scraped Website Content End]`
+            content: `Analyze this website: ${url}\n\n[CONTEXT START]\n${scrapedContent.substring(0, 50000)}\n[CONTEXT END]`
         }
     ]
 
-    // Agent 1: Google Search Scraper
-    console.log('Agent 1: Google Search / Search Agent')
-    const agent1Instruction = `You are a Search Agent.
-
-Your task is to:
-1. Accept user-provided urls, or keywords or both and Google search operators.
-2. If user input is ONLY a url just skip all process and reproduce the url, otherwise keyword, Perform Google searches of such companies using the provided context.
-3. Extract organic result URLs only of the relevant companies.
-4. Return a clean list of discovered simple cleaned URLs with:
-   - URL
-   - Page title (if available)
-
-Do NOT analyze content yet.
-Do NOT validate language yet.
-Do NOT score leads yet.`
-
+    // Agent 1: Legal & Compliance
+    console.log('Agent 1: Legal & Compliance')
+    const agent1Instruction = `You are a German Legal Compliance Auditor for E-commerce.
+    Analyze the provided website content for compliance with German laws (Impressum, Dataprivacy, AGB/Terms, Withdrawal Rights).
+    Identify missing mandatory information (e.g. Handelsregister, VAT ID, Responsible Person, etc).
+    
+    Output a detailed analysis of the legal texts.`
     const res1 = await callOpenAI(apiKey, agent1Instruction, messages)
     messages.push({ role: 'assistant', content: res1 })
 
-
-    // Agent 2: URL Normalization Agent
-    console.log('Agent 2: URL Normalization Agent')
-    const agent2Instruction = `You are a URL Normalization Agent.
-
-Your responsibilities:
-1. Accept url inputs from the previous step, then Normalize URLs (remove UTM parameters, fragments, session IDs).
-2. Deduplicate results by root domain.
-3. Ensure URLs are reachable.
-4. Output only unique, clean URLs.
-
-Do NOT analyze language or content.`
-
+    // Agent 2: UX & Conversion
+    console.log('Agent 2: UX & Conversion')
+    const agent2Instruction = `You are an UX Expert.
+    Analyze the website for conversion optimization and user experience issues, specifically for the German market.
+    Look at: Language consistency, Trust signals, Shipping transparency, Payment options visibility.
+    
+    Output a detailed analysis.`
     const res2 = await callOpenAI(apiKey, agent2Instruction, messages)
     messages.push({ role: 'assistant', content: res2 })
 
-
-    // Agent 3: Country Confirmation Agent
-    console.log('Agent 3: Country Confirmation Agent')
-    const agent3Instruction = `You are an ai agent, your job is to do the following 
-verify if a German version of this website exists based on the provided content / context.
-
-You must detect:
-- URL Patterns: Presence of /de/, /de-de/, or de. subdomains
-- Visual Elements: Presence of a Language Switcher (Flags, Dropdowns) or hreflang="de" tags
-- Content: Actual German text in the scraped content
-
-Outcome: Only websites that pass this "German Signal Check" are saved as leads.
-If the website or url has german content or the company operates in germany, proceed to the next node.`
-
-    const res3 = await callOpenAI(apiKey, agent3Instruction, messages)
-    messages.push({ role: 'assistant', content: res3 })
-
-
-    // Agent 4: Localization Quality Analysis Agent
-    console.log('Agent 4: Localization Quality Analysis Agent')
-    const agent4Instruction = `You are a Localization Quality Analysis Agent.
-
-Your task:
-1. Analyze the German-language content of the provided website (from context).
-2. Detect signs of poor localization, including:
-   - Grammar or syntax errors
-   - Mixed German and English text
-   - Awkward phrasing typical of machine translation
-   - Inconsistent terminology
-3. Provide:
-   - A quality score from 0–100
-   - Specific error examples (quotes from the text)
-   - A brief explanation of issues found
-
-Do NOT fix the errors.
-Do NOT rewrite content.
-Focus only on evaluation.`
-
-    const res4 = await callOpenAI(apiKey, agent4Instruction, messages)
-    messages.push({ role: 'assistant', content: res4 })
-
-
-    // Agent 5: Lead Scoring & Structuring Agent
-    console.log('Agent 5: Lead Scoring & Structuring Agent')
-    const agent5Instruction = `You are a Lead Structuring Agent.
-
-Your responsibilities:
-1. Combine validation and localization analysis data.
-2. Assign a final lead quality label:
-   - High Opportunity (0–50)
-   - Medium Opportunity (51–75)
-   - Low Opportunity (76-100)
-3. Extract extensive company details and contacts from the website content.
-4. Output clean, structured data.`
-
-    const res5 = await callOpenAI(apiKey, agent5Instruction, messages)
-    messages.push({ role: 'assistant', content: res5 })
-
-
-    // Agent 6: Export Agent (CSV / Excel) schema enforcement
-    console.log('Agent 6: Export Agent')
-    const agent6Instruction = `You are an Export Agent.
-
-Your task:
-1. Accept structured lead data from previous steps.
-2. Output valid JSON matching this schema exactly:
-{
-  "company": "string",
-  "website": "string",
-  "industry": "string",
-  "hq_location": "string",
-  "founded": number or null,
-  "employees": "string",
-  "markets": "string",
-  "revenue_2023_eur": "string",
-  "linkedIn": "string",
-  "twitter": "string",
-  "contacts": [ { "name": "string", "title": "string", "linkedin": "string", "email": "string" } ],
-  "lead_quality_label": "string",
-  "lead_quality_score": number,
-  "localization_evidence": {
-    "tld": "string",
-    "language_options": "string",
-    "german_content_on_main_domain": boolean,
-    "localization_quality_on_english_page": "string (evidence)"
-  },
-  "notes": "string"
-}
-
-IMPORTANT: Return ONLY valid JSON. No markdown formatting.`
-
-    // We add a specific user message to trigger the final export format
-    messages.push({ role: 'user', content: "Generate the final JSON output now." })
-
-    const res6 = await callOpenAI(apiKey, agent6Instruction, messages)
-
-    // Parse and Validate
-    try {
-        let cleanJson = res6.trim()
-        // Remove markdown code blocks if present
-        cleanJson = cleanJson.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-
-        const parsed = JSON.parse(cleanJson)
-
-        // Ensure all required fields exist (fallback to empty strings if missing)
-        return {
-            company: parsed.company || '',
-            website: parsed.website || '',
-            industry: parsed.industry || '',
-            hq_location: parsed.hq_location || '',
-            founded: typeof parsed.founded === 'number' ? parsed.founded : null,
-            employees: parsed.employees || '',
-            markets: parsed.markets || '',
-            revenue_2023_eur: parsed.revenue_2023_eur || '',
-            linkedIn: parsed.linkedIn || '',
-            twitter: parsed.twitter || '',
-            contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
-            lead_quality_label: parsed.lead_quality_label || '',
-            lead_quality_score: typeof parsed.lead_quality_score === 'number' ? parsed.lead_quality_score : null,
-            localization_evidence: {
-                tld: parsed.localization_evidence?.tld || '',
-                language_options: parsed.localization_evidence?.language_options || '',
-                german_content_on_main_domain: !!parsed.localization_evidence?.german_content_on_main_domain,
-                localization_quality_on_english_page: parsed.localization_evidence?.localization_quality_on_english_page || ''
-            },
-            notes: parsed.notes || ''
+    // Agent 3: Structure & Compile
+    console.log('Agent 3: Compiler')
+    const agent3Instruction = `You are the Lead Auditor.
+    Based on the previous analyses, compile a Final Deep Audit Report in JSON format.
+    
+    The structure MUST be exactly:
+    {
+      "overview": "Executive summary of the audit state.",
+      "sections": [
+        {
+          "title": "Section Title (e.g. Legal, UX, etc)",
+          "findings": [
+            {
+              "problem": "Short title of the problem",
+              "explanation": "Detailed explanation of why this is a problem and source/regulation if applicable.",
+              "recommendation": "Concrete action to fix it.",
+              "severity": "high" | "medium" | "low"
+            }
+          ]
         }
+      ],
+      "conclusion": "Final concluding remarks.",
+      "actionList": ["Action item 1", "Action item 2"]
+    }
+    
+    Return ONLY valid JSON. match the structure perfectly.`
 
+    const res3 = await callOpenAI(apiKey, agent3Instruction, messages, 'gpt-4o') // Use gpt-4o for better JSON structure
+
+    try {
+        let cleanJson = res3.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
+        const parsed = JSON.parse(cleanJson)
+        const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
+        return { ...parsed, issuesCount: totalFindings }
     } catch (e) {
-        console.error('JSON Parse Error:', e)
-        console.log('Raw output:', res6)
-        throw new Error('Failed to parse final agent output')
+        console.error("JSON Parse Error", e)
+        throw new Error("Failed to parse audit report")
     }
 }
 
-/**
- * Call OpenAI Chat Completions API
- */
 async function callOpenAI(
     apiKey: string,
     systemPrompt: string,
@@ -441,9 +318,9 @@ async function callOpenAI(
     })
 
     if (!response.ok) {
-        const error = await response.text()
-        console.error(`OpenAI Error (${model}):`, error)
-        throw new Error(`OpenAI API error: ${error}`)
+        const t = await response.text()
+        console.error("OpenAI Error:", t)
+        throw new Error(t)
     }
 
     const data = await response.json()

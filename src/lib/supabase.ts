@@ -12,9 +12,24 @@ export const supabase = createClient(
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey)
 
+export type AuditSection = {
+  title: string
+  findings: Array<{
+    problem: string
+    explanation: string
+    recommendation: string
+    severity: 'high' | 'medium' | 'low'
+  }>
+}
+
 export type JobReport = {
-  issuesCount: number
-  issues: Array<{
+  overview: string
+  sections: AuditSection[]
+  conclusion: string
+  actionList: string[]
+  // keeping legacy fields optional for backward compatibility if needed
+  issuesCount?: number
+  issues?: Array<{
     title?: string
     severity?: string
     description?: string

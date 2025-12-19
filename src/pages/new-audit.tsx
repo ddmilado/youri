@@ -65,10 +65,19 @@ export function NewAuditPage() {
 
         if (result.success) {
           setProgress('Analysis complete!')
-          toast.success('Lead analysis completed successfully!')
+          toast.success('Deep audit completed successfully!')
+
+          // In standard flow, the backend might return job_id directly
+          // We check for job_id (new flow) or fall back to ID (legacy flow if any)
+          const redirectId = result.job_id || result.result?.id
 
           setTimeout(() => {
-            navigate('/dashboard')
+            // Redirect to the report page
+            if (redirectId) {
+              navigate(`/report/${redirectId}`)
+            } else {
+              navigate('/dashboard')
+            }
           }, 1000)
         } else {
           toast.error(result.error || 'Failed to complete analysis')
@@ -102,8 +111,8 @@ export function NewAuditPage() {
               type="button"
               onClick={() => setWorkflowType('keyword')}
               className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${workflowType === 'keyword'
-                  ? 'bg-white dark:bg-gray-800 shadow-sm'
-                  : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
+                ? 'bg-white dark:bg-gray-800 shadow-sm'
+                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
                 }`}
             >
               <Search className="h-4 w-4" />
@@ -113,8 +122,8 @@ export function NewAuditPage() {
               type="button"
               onClick={() => setWorkflowType('url')}
               className={`flex-1 py-2 px-4 rounded-md transition-all flex items-center justify-center gap-2 ${workflowType === 'url'
-                  ? 'bg-white dark:bg-gray-800 shadow-sm'
-                  : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
+                ? 'bg-white dark:bg-gray-800 shadow-sm'
+                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
                 }`}
             >
               <LinkIcon className="h-4 w-4" />
@@ -148,8 +157,8 @@ export function NewAuditPage() {
             </div>
 
             <div className={`rounded-lg p-4 border ${workflowType === 'keyword'
-                ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
-                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+              ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
+              : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
               }`}>
               <div className="flex items-start gap-3">
                 {workflowType === 'keyword' ? (
@@ -159,14 +168,14 @@ export function NewAuditPage() {
                 )}
                 <div className="space-y-2 text-sm">
                   <p className={`font-medium ${workflowType === 'keyword'
-                      ? 'text-slate-900 dark:text-slate-100'
-                      : 'text-emerald-900 dark:text-emerald-100'
+                    ? 'text-slate-900 dark:text-slate-100'
+                    : 'text-emerald-900 dark:text-emerald-100'
                     }`}>
                     {workflowType === 'keyword' ? 'Quick Discovery (10-15 sec)' : 'Deep Analysis (30-60 sec)'}
                   </p>
                   <ul className={`space-y-1 text-xs ${workflowType === 'keyword'
-                      ? 'text-slate-700 dark:text-slate-300'
-                      : 'text-emerald-700 dark:text-emerald-300'
+                    ? 'text-slate-700 dark:text-slate-300'
+                    : 'text-emerald-700 dark:text-emerald-300'
                     }`}>
                     {workflowType === 'keyword' ? (
                       <>
@@ -207,8 +216,8 @@ export function NewAuditPage() {
               type="submit"
               size="lg"
               className={`w-full ${workflowType === 'keyword'
-                  ? 'bg-slate-700 hover:bg-slate-800'
-                  : 'bg-emerald-600 hover:bg-emerald-700'
+                ? 'bg-slate-700 hover:bg-slate-800'
+                : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               disabled={loading}
             >

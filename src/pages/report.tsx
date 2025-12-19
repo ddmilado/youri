@@ -12,7 +12,24 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Loader2, ArrowLeft, Download, CheckCircle2, AlertTriangle, AlertCircle, Info, CheckSquare, ExternalLink } from 'lucide-react'
+import {
+  Loader2,
+  ArrowLeft,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckSquare,
+  ExternalLink,
+  Building2,
+  Users,
+  Linkedin,
+  Mail,
+  History,
+  TrendingUp,
+  User
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -359,45 +376,123 @@ export function ReportPage() {
             )}
           </div>
 
-          {/* RIGHT COLUMN: ACTION PLAN */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Action Plan</h3>
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-              <Card className="bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-950/30 rounded-full -mr-16 -mt-16 z-0"></div>
-                <CardHeader className="relative z-10 pb-2">
-                  <CardTitle className="text-base font-medium text-indigo-900 dark:text-indigo-100">Next Steps</CardTitle>
-                  <CardDescription>Prioritized checklist to improve compliance and conversion.</CardDescription>
+          {/* ACTION PLAN */}
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Action Plan</h3>
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+            <Card className="bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-950/30 rounded-full -mr-16 -mt-16 z-0"></div>
+              <CardHeader className="relative z-10 pb-2">
+                <CardTitle className="text-base font-medium text-indigo-900 dark:text-indigo-100">Next Steps</CardTitle>
+                <CardDescription>Prioritized checklist to improve compliance and conversion.</CardDescription>
+              </CardHeader>
+              <CardContent className="relative z-10 pt-4">
+                <ul className="space-y-3">
+                  {report?.actionList?.map((action, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm group">
+                      <div className="mt-0.5 h-5 w-5 rounded-full border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-white transition-colors cursor-pointer hover:bg-indigo-600 hover:border-indigo-600">
+                        {/* Checkbox state logic could go here */}
+                      </div>
+                      <span className="text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">{action}</span>
+                    </li>
+                  ))}
+                  {(!report?.actionList || report.actionList.length === 0) && (
+                    <li className="text-sm text-muted-foreground italic">No specific actions generated.</li>
+                  )}
+                </ul>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* COMPANY PROFILE */}
+          {report?.companyInfo && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
+              <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-emerald-600" />
+                    Company Profile
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="relative z-10 pt-4">
-                  <ul className="space-y-3">
-                    {report?.actionList?.map((action, i) => (
-                      <li key={i} className="flex items-start gap-3 text-sm group">
-                        <div className="mt-0.5 h-5 w-5 rounded-full border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-white transition-colors cursor-pointer hover:bg-indigo-600 hover:border-indigo-600">
-                          {/* Checkbox state logic could go here */}
-                        </div>
-                        <span className="text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">{action}</span>
-                      </li>
-                    ))}
-                    {(!report?.actionList || report.actionList.length === 0) && (
-                      <li className="text-sm text-muted-foreground italic">No specific actions generated.</li>
-                    )}
-                  </ul>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-start gap-4">
+                      <span className="text-muted-foreground">Company:</span>
+                      <span className="text-right font-medium">{report.companyInfo.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Industry:</span>
+                      <span className="font-medium">{report.companyInfo.industry || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">HQ:</span>
+                      <span className="font-medium">{report.companyInfo.hq_location || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Founded:</span>
+                      <span className="font-medium">{report.companyInfo.founded || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Size:</span>
+                      <span className="font-medium">{report.companyInfo.employees || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue:</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold">{report.companyInfo.revenue || '-'}</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
+          )}
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium">Conclusion</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {report?.conclusion || "Audit completed."}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* LEADERSHIP & CONTACTS */}
+          {report?.companyInfo?.contacts && report.companyInfo.contacts.length > 0 && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
+              <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <User className="h-4 w-4 text-blue-600" />
+                    Leadership & Contacts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {report.companyInfo.contacts.map((contact, idx) => (
+                      <div key={idx} className="p-3 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-sm">{contact.name}</div>
+                          <div className="flex gap-2">
+                            {contact.linkedin && (
+                              <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
+                                <Linkedin className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            {contact.email && (
+                              <a href={`mailto:${contact.email}`} className="text-slate-500 hover:text-slate-700">
+                                <Mail className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{contact.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">Conclusion</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {report?.conclusion || "Audit completed."}
+              </p>
+            </CardContent>
+          </Card>
 
         </div>
 

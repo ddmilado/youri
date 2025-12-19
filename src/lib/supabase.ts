@@ -22,11 +22,29 @@ export type AuditSection = {
   }>
 }
 
+export type Contact = {
+  name: string
+  title: string
+  linkedin?: string
+  email?: string
+}
+
+export type CompanyInfo = {
+  name: string
+  industry?: string
+  hq_location?: string
+  founded?: number
+  employees?: string
+  revenue?: string
+  contacts: Contact[]
+}
+
 export type JobReport = {
   overview: string
   sections: AuditSection[]
   conclusion: string
   actionList: string[]
+  companyInfo?: CompanyInfo
   // keeping legacy fields optional for backward compatibility if needed
   issuesCount?: number
   issues?: Array<{

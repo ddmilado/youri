@@ -25,12 +25,30 @@ interface AuditSection {
     }>
 }
 
+interface Contact {
+    name: string
+    title: string
+    linkedin?: string
+    email?: string
+}
+
+interface CompanyInfo {
+    name: string
+    industry?: string
+    hq_location?: string
+    founded?: number
+    employees?: string
+    revenue?: string
+    contacts: Contact[]
+}
+
 interface JobReport {
     overview: string
     sections: AuditSection[]
     conclusion: string
     actionList: string[]
     issuesCount?: number
+    companyInfo?: CompanyInfo
 }
 
 serve(async (req) => {
@@ -251,22 +269,49 @@ async function executeAuditWorkflow(
     const res2 = await callOpenAI(apiKey, agent2Instruction, messages)
     messages.push({ role: 'assistant', content: res2 })
 
-    // Agent 3: Structure & Compile
-    console.log('Agent 3: Compiler')
-    const agent3Instruction = `You are the Lead Auditor.
+    // Agent 3: Company & Contact Discovery
+    console.log('Agent 3: Company & Contact Discovery')
+    const agent3Instruction = `You are a Business Intelligence Researcher.
+    Extract detailed information about the company behind this website:
+    - Official Company Name
+    - Industry/Niche
+    - Headquarters Location
+    - Year Founded
+    - Employee Count (approximate)
+    - Revenue (approximate, if available)
+    - Key People: Extract names and job titles of company leaders, founders, or key management mentioned on the site or in legal texts.
+    
+    Output a detailed summary of the company profile and leadership.`
+    const res3 = await callOpenAI(apiKey, agent3Instruction, messages)
+    messages.push({ role: 'assistant', content: res3 })
+
+    // Agent 4: Structure & Compile
+    console.log('Agent 4: Compiler')
+    const agent4Instruction = `You are the Lead Auditor.
     Based on the previous analyses, compile a Final Deep Audit Report in JSON format.
     
     The structure MUST be exactly:
     {
       "overview": "Executive summary of the audit state.",
+      "companyInfo": {
+        "name": "Full Company Name",
+        "industry": "Industry description",
+        "hq_location": "City, Country",
+        "founded": 1999,
+        "employees": "11-50",
+        "revenue": "€1M-€5M",
+        "contacts": [
+          { "name": "John Doe", "title": "CEO", "linkedin": "optional", "email": "optional" }
+        ]
+      },
       "sections": [
         {
           "title": "Section Title (e.g. Legal, UX, etc)",
           "findings": [
             {
-              "problem": "Short title of the problem",
-              "explanation": "Detailed explanation of why this is a problem and source/regulation if applicable.",
-              "recommendation": "Concrete action to fix it.",
+              "problem": "...",
+              "explanation": "...",
+              "recommendation": "...",
               "severity": "high" | "medium" | "low"
             }
           ]
@@ -278,10 +323,10 @@ async function executeAuditWorkflow(
     
     Return ONLY valid JSON. match the structure perfectly.`
 
-    const res3 = await callOpenAI(apiKey, agent3Instruction, messages, 'gpt-4o') // Use gpt-4o for better JSON structure
+    const res4 = await callOpenAI(apiKey, agent4Instruction, messages, 'gpt-4o') // Use gpt-4o for better JSON structure
 
     try {
-        let cleanJson = res3.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
+        let cleanJson = res4.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
         const parsed = JSON.parse(cleanJson)
         const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
         return { ...parsed, issuesCount: totalFindings }

@@ -87,7 +87,7 @@ export function NewAuditPage() {
     <div className="p-6 lg:p-8 max-w-2xl mx-auto min-h-screen flex items-center">
       <Card className="w-full">
         <CardHeader>
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center mb-4">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
           <CardTitle className="text-3xl">AI Lead Discovery</CardTitle>
@@ -147,26 +147,26 @@ export function NewAuditPage() {
               </p>
             </div>
 
-            <div className={`bg-gradient-to-br rounded-lg p-4 border ${workflowType === 'keyword'
-                ? 'from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800'
-                : 'from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800'
+            <div className={`rounded-lg p-4 border ${workflowType === 'keyword'
+                ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
+                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
               }`}>
               <div className="flex items-start gap-3">
                 {workflowType === 'keyword' ? (
-                  <Search className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <Search className="h-5 w-5 text-slate-700 dark:text-slate-300 mt-0.5 flex-shrink-0" />
                 ) : (
-                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                  <Sparkles className="h-5 w-5 text-emerald-700 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                 )}
                 <div className="space-y-2 text-sm">
                   <p className={`font-medium ${workflowType === 'keyword'
-                      ? 'text-blue-900 dark:text-blue-100'
-                      : 'text-purple-900 dark:text-purple-100'
+                      ? 'text-slate-900 dark:text-slate-100'
+                      : 'text-emerald-900 dark:text-emerald-100'
                     }`}>
                     {workflowType === 'keyword' ? 'Quick Discovery (10-15 sec)' : 'Deep Analysis (30-60 sec)'}
                   </p>
                   <ul className={`space-y-1 text-xs ${workflowType === 'keyword'
-                      ? 'text-blue-700 dark:text-blue-300'
-                      : 'text-purple-700 dark:text-purple-300'
+                      ? 'text-slate-700 dark:text-slate-300'
+                      : 'text-emerald-700 dark:text-emerald-300'
                     }`}>
                     {workflowType === 'keyword' ? (
                       <>
@@ -207,8 +207,8 @@ export function NewAuditPage() {
               type="submit"
               size="lg"
               className={`w-full ${workflowType === 'keyword'
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
-                  : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'
+                  ? 'bg-slate-700 hover:bg-slate-800'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               disabled={loading}
             >

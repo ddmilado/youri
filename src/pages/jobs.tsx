@@ -103,11 +103,11 @@ function JobsPageContent() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <div className="flex h-16 items-center border-b px-6 bg-background flex-shrink-0">
+      <div className="flex h-16 items-center border-b border-border px-6 bg-background flex-shrink-0 shadow-sm">
         <h1 className="text-lg font-semibold md:text-xl">Audit Results</h1>
         <div className="ml-auto flex items-center gap-2">
           <Link to="/new">
-            <Button size="sm">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
               <Plus className="mr-2 h-4 w-4" />
               New Project
             </Button>

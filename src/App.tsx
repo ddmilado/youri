@@ -37,8 +37,8 @@ function App() {
   // Show configuration error page if Supabase is not configured
   if (!isSupabaseConfigured) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-950 dark:to-red-950 p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-lg shadow-lg p-8">
           <div className="flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full mx-auto mb-4">
             <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
           </div>

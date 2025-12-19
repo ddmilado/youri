@@ -91,14 +91,14 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Top Header - SaaS Style */}
-      <header className="flex h-16 items-center flex-shrink-0 gap-4 border-b bg-background px-6">
+      <header className="flex h-16 items-center flex-shrink-0 gap-4 border-b bg-background px-6 shadow-sm">
         <div className="flex flex-col">
           <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
           <p className="text-xs text-muted-foreground hidden md:block">
             Welcome back, {firstName}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-4">
+        <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" className="hidden sm:flex">
             <Filter className="mr-2 h-4 w-4" />
             Filter
@@ -108,7 +108,7 @@ export function DashboardPage() {
             Export
           </Button>
           <Link to="/new">
-            <Button size="sm">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
               <Plus className="mr-2 h-4 w-4" />
               New Analysis
             </Button>
@@ -119,32 +119,41 @@ export function DashboardPage() {
       {/* Main Content Area - Scrollable */}
       <main className="flex-1 overflow-auto p-6">
         {/* KPI Cards - Dense Row */}
-        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 mb-6">
-          <Card>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3 mb-6">
+          <Card className="border-slate-200 dark:border-slate-700">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalLeads}</div>
+              <div className="text-3xl font-bold">{stats.totalLeads}</div>
+              <p className="text-xs text-muted-foreground mt-1">Qualified opportunities</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-slate-200 dark:border-slate-700">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Audits</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeAudits}</div>
+              <div className="text-3xl font-bold">{stats.activeAudits}</div>
+              <p className="text-xs text-muted-foreground mt-1">In progress</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-slate-200 dark:border-slate-700">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completedAudits}</div>
+              <div className="text-3xl font-bold">{stats.completedAudits}</div>
+              <p className="text-xs text-muted-foreground mt-1">Finished audits</p>
             </CardContent>
           </Card>
         </div>

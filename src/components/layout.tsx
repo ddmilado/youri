@@ -39,11 +39,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 flex items-center px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-4 shadow-sm">
         <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
           <Menu className="h-5 w-5" />
         </Button>
-        <span className="ml-3 font-bold text-xl">YourInt AI</span>
+        <span className="ml-3 font-bold text-xl">SiteAudit</span>
         <div className="ml-auto">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -53,30 +53,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-muted/20 border-r z-40 transition-transform duration-200",
+          "fixed top-0 left-0 h-full w-64 bg-card border-r border-border z-40 transition-transform duration-200",
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0'
         )}
       >
         <div className="p-6">
-          <h1 className="text-2xl font-bold">YourInt AI</h1>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">SiteAudit</h1>
         </div>
         <nav className="px-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path)
-            return (
-              <Link key={item.path} to={item.path}>
-                <Button
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start', isActive && 'bg-primary/10 text-primary')}
-                >
-                  <item.icon className="mr-3 h-5 w-5" />
-                  {item.label}
-                </Button>
-              </Link>
-            )
-          })}
-        </nav>
+           {navItems.map((item) => {
+             const isActive = location.pathname.startsWith(item.path)
+             return (
+               <Link key={item.path} to={item.path}>
+                 <Button
+                   variant={isActive ? 'secondary' : 'ghost'}
+                   className={cn('w-full justify-start', isActive && 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium')}
+                 >
+                   <item.icon className="mr-3 h-5 w-5" />
+                   {item.label}
+                 </Button>
+               </Link>
+             )
+           })}
+         </nav>
         <div className="absolute bottom-6 left-3 right-3 space-y-2">
           <Button variant="ghost" className="w-full justify-start hidden lg:flex" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun className="mr-3 h-5 w-5" /> : <Moon className="mr-3 h-5 w-5" />}
@@ -92,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className={cn('min-h-screen transition-all duration-200', 'lg:ml-64', 'pt-16 lg:pt-0')}>{children}</main>
 
       <Link to="/new" className="lg:hidden fixed bottom-6 right-6 z-40">
-        <Button size="icon" className="h-14 w-14 rounded-full shadow-2xl">
+        <Button size="icon" className="h-14 w-14 rounded-full shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white">
           <Plus className="h-6 w-6" />
         </Button>
       </Link>

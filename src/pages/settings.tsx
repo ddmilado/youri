@@ -12,7 +12,7 @@ export function SettingsPage() {
     return (
         <div className="flex flex-col h-screen bg-background text-foreground">
             {/* Header */}
-            <div className="flex h-16 items-center border-b px-6 bg-background flex-shrink-0">
+            <div className="flex h-16 items-center border-b border-border px-6 bg-background flex-shrink-0 shadow-sm">
                 <h1 className="text-lg font-semibold md:text-xl">Settings</h1>
             </div>
 

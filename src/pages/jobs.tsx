@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, getLeadResults } from '@/lib/supabase'
+import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, getLeadResults, linkAnalysis } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

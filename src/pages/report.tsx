@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Database, type JobReport, type AuditSection } from '@/lib/supabase'
+import { supabase, type Database, type AuditSection } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -12,10 +12,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Loader2, ArrowLeft, Copy, Download, CheckCircle2, AlertTriangle, AlertCircle, Info, CheckSquare, ExternalLink } from 'lucide-react'
+import { Loader2, ArrowLeft, Download, CheckCircle2, AlertTriangle, AlertCircle, Info, CheckSquare, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
-import { formatDistanceToNow } from 'date-fns'
+
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 

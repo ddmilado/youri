@@ -123,8 +123,95 @@ serve(async (req) => {
         // Start processing in background (but we wait for it here in this sync version for simplicity/demo)
         // In a real prod environment, you might decouple this.
 
-        // Step 1: Crawl the entire website with Firecrawl
-        let scrapedContent = ''
+        // Step 1: Extract Language Signals (The "100% Fix" for Dropdowns)
+        console.log('Extracting language signals from homepage...')
+        let languageSignals = 'No explicit language signals found on homepage.'
+        try {
+            const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${firecrawlApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: targetUrl,
+                    formats: ['extract'],
+                    extract: {
+                        schema: {
+                            type: "object",
+                            properties: {
+                                hasLanguageSwitcher: { type: "boolean" },
+                                availableLanguages: { type: "array", items: { type: "string" } },
+                                hreflangTags: { type: "array", items: { type: "string" } },
+                                switcherType: { type: "string", description: "dropdown, flags, footer links, etc." },
+                                germanVersionUrl: { type: "string", description: "The direct URL to the German version if it exists." },
+                                germanSelector: { type: "string", description: "CSS selector to click to switch to German (e.g., '.lang-de', 'button:has-text(\"DE\")')." }
+                            },
+                            required: ["hasLanguageSwitcher", "availableLanguages"]
+                        }
+                    }
+                })
+            })
+
+            if (scrapeResponse.ok) {
+                const scrapeData = await scrapeResponse.json()
+                if (scrapeData.success && scrapeData.data?.extract) {
+                    const ext = scrapeData.data.extract
+                    languageSignals = `
+                    HOMEPAGE LANGUAGE SIGNALS (EXTRACTED):
+                    - Has Language Switcher: ${ext.hasLanguageSwitcher}
+                    - Switcher Type: ${ext.switcherType || 'Unknown'}
+                    - Available Languages: ${ext.availableLanguages?.join(', ') || 'None detected'}
+                    - Hreflang Tags: ${ext.hreflangTags?.join(', ') || 'None detected'}
+                    `
+                    console.log('Language signals extracted:', ext)
+
+                    // Step 1.5: Targeted German Content Scrape (The "Bulletproof" Part)
+                    if (ext.hasLanguageSwitcher || ext.germanVersionUrl || ext.germanSelector) {
+                        console.log('Detected German version entry point. Performing targeted scrape...')
+                        try {
+                            const germanScrapeUrl = ext.germanVersionUrl || targetUrl
+                            const actions = ext.germanSelector ? [
+                                { type: "wait", milliseconds: 1000 },
+                                { type: "click", selector: ext.germanSelector },
+                                { type: "wait", milliseconds: 2000 }
+                            ] : []
+
+                            const germanScrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${firecrawlApiKey}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    url: germanScrapeUrl,
+                                    formats: ['markdown'],
+                                    headers: {
+                                        'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8'
+                                    },
+                                    actions: actions.length > 0 ? actions : undefined
+                                })
+                            })
+
+                            if (germanScrapeResponse.ok) {
+                                const germanData = await germanScrapeResponse.json()
+                                if (germanData.success && germanData.data?.markdown) {
+                                    languageSignals += `\n\n=== TARGETED GERMAN CONTENT (SAMPLED) ===\n${germanData.data.markdown.substring(0, 5000)}\n`
+                                    console.log('German content sampled successfully.')
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error during targeted German scrape:', error)
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error during signal extraction:', error)
+        }
+
+        // Step 2: Crawl the entire website with Firecrawl
+        let scrapedContent = languageSignals // Start with the signals
         let screenshotUrl = null
 
         if (targetUrl) {
@@ -172,7 +259,7 @@ serve(async (req) => {
                                     console.log('Crawl completed! Pages:', statusData.data?.length)
                                     // Combine content
                                     const pages = statusData.data || []
-                                    scrapedContent = pages.map((page: any) => {
+                                    scrapedContent += '\n\n' + pages.map((page: any) => {
                                         return `\n\n=== PAGE: ${page.metadata?.url || 'Unknown'} ===\n${page.markdown || ''}`
                                     }).join('\n\n')
                                     break
@@ -286,12 +373,17 @@ async function executeAuditWorkflow(
 
     // 6. Localization Specialist
     const agent6Instruction = `You are a German Localization Expert. 
-    1. Detect if a separate German version exists:
-       - URL Patterns: Presence of /de/, /de-de/, or de. subdomains (e.g. website.nl/de or website.com/de).
-       - Visual Elements: Presence of a Language Switcher (Flags, Dropdowns) or hreflang="de" tags in the HTML.
-    2. Judge "Poor German Localization" signals:
-       - Detect grammar errors, mixed languages (EN/DE), machine translation feel.
-       - IMPORTANT: Provide specific examples of translation errors or awkward phrasing found.
+    
+    IMPORTANT: Look for "HOMEPAGE LANGUAGE SIGNALS" and "TARGETED GERMAN CONTENT (SAMPLED)" in the provided context. 
+    The "TARGETED GERMAN CONTENT" is the actual text from the German version of the site. Use it to judge the quality of the translation.
+    
+    1. Detect and Confirm German Version:
+       - Use "HOMEPAGE LANGUAGE SIGNALS" (URL patterns, switchers, hreflangs) to confirm if a German version exists.
+    2. Deep Localization Analysis (using TARGETED GERMAN CONTENT):
+       - Judge the quality of the German text.
+       - Detect grammar errors, awkward phrasing, "machine translation" feel, or inconsistent terminology.
+       - Identify sections that are still in English.
+       - IMPORTANT: Provide specific examples of poor localization found in the sampled text.
     
     For each issue found, provide:
     - Problem: Concise title
@@ -358,12 +450,23 @@ async function executeAuditWorkflow(
     const resCompiler = await callOpenAI(apiKey, compilerInstruction, compilerMessages, 'gpt-4o')
 
     try {
-        let cleanJson = resCompiler.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '')
+        // Find the first '{' and last '}' to extract the JSON object
+        const firstBrace = resCompiler.indexOf('{')
+        const lastBrace = resCompiler.lastIndexOf('}')
+
+        if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+            console.error("No valid JSON object found in response:", resCompiler)
+            throw new Error("AI response did not contain a valid JSON object")
+        }
+
+        const cleanJson = resCompiler.substring(firstBrace, lastBrace + 1)
         const parsed = JSON.parse(cleanJson)
+
         const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
         return { ...parsed, issuesCount: totalFindings }
     } catch (e) {
-        console.error("JSON Parse Error", e)
+        console.error("JSON Parse Error. Raw response:", resCompiler)
+        console.error(e)
         throw new Error("Failed to parse audit report")
     }
 }

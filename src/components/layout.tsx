@@ -44,7 +44,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
           <Menu className="h-5 w-5" />
         </Button>
-        <span className="ml-3 font-bold text-xl">YourIntAI</span>
+        <div className="flex items-center">
+          <img src="/logo.svg" alt="YourIntAI Logo" className="h-8 w-8 object-contain" />
+          <span className="ml-3 font-bold text-xl">YourIntAI</span>
+        </div>
         <div className="ml-auto">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -60,7 +63,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="p-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">YourIntAI</h1>
+          <div className="flex items-center gap-3">
+            <img src="/logo.svg" alt="YourIntAI Logo" className="h-9 w-9 object-contain" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">YourIntAI</h1>
+          </div>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <Plus className="h-5 w-5 rotate-45" />
           </Button>

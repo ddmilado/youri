@@ -185,8 +185,8 @@ export function DashboardPage() {
 
           <TabsContent value="leads" className="m-0">
             <Card className="overflow-hidden">
-              <CardContent className="p-0 overflow-x-auto">
-                <Table className="min-w-[700px] md:min-w-full">
+              <CardContent className="p-0">
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[300px]">Company</TableHead>
@@ -266,8 +266,8 @@ export function DashboardPage() {
 
           <TabsContent value="audits" className="m-0">
             <Card className="overflow-hidden">
-              <CardContent className="p-0 overflow-x-auto">
-                <Table className="min-w-[600px] md:min-w-full">
+              <CardContent className="p-0">
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Audit Title</TableHead>
@@ -330,19 +330,19 @@ export function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[500px] overflow-y-auto overflow-x-hidden">
+                  <div className="">
                     {isLoadingKeywords ? (
                       <div className="p-4 space-y-2">
                         {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                       </div>
                     ) : keywordSearches && keywordSearches.length > 0 ? (
                       <div className="divide-y overflow-hidden">
-                        {keywordSearches.map((search) => (
+                        {keywordSearches.slice(0, 5).map((search) => (
                           <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
                             <div className="font-medium truncate" title={search.search_query}>{search.search_query}</div>
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between gap-4">
-                              <span className="truncate">{search.company_name}</span>
-                              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
+                              <span className="truncate max-w-[150px]">{search.company_name}</span>
+                              <span className="whitespace-nowrap opacity-70">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
                             </div>
                           </div>
                         ))}
@@ -363,19 +363,19 @@ export function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[500px] overflow-y-auto overflow-x-hidden">
+                  <div className="">
                     {isLoadingPeople ? (
                       <div className="p-4 space-y-2">
                         {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                       </div>
                     ) : peopleSearches && peopleSearches.length > 0 ? (
                       <div className="divide-y overflow-hidden">
-                        {peopleSearches.map((search) => (
+                        {peopleSearches.slice(0, 5).map((search) => (
                           <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
                             <div className="font-medium truncate" title={search.query}>{search.query}</div>
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between gap-4">
+                            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
                               <span className="whitespace-nowrap">{search.results?.length || 0} matches</span>
-                              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                              <span className="whitespace-nowrap opacity-70">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
                             </div>
                           </div>
                         ))}

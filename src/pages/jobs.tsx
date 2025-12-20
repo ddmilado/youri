@@ -140,10 +140,10 @@ function JobsPageContent() {
         </div>
 
         <Card className="overflow-hidden">
-          <CardContent className="p-0 overflow-x-auto">
+          <CardContent className="p-0">
             {/* AI LEADS TABLE */}
             {activeTab === 'leads' && (
-              <Table className="min-w-[700px] md:min-w-full">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[300px]">Company</TableHead>
@@ -204,7 +204,7 @@ function JobsPageContent() {
 
             {/* SEARCHES TABLE */}
             {activeTab === 'searches' && (
-              <Table className="min-w-[800px] md:min-w-full">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[300px]">Company</TableHead>
@@ -269,7 +269,7 @@ function JobsPageContent() {
 
             {/* AUDITS TABLE */}
             {activeTab === 'audits' && (
-              <Table className="min-w-[600px] md:min-w-full">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Audit Name</TableHead>

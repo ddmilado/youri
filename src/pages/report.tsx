@@ -28,7 +28,9 @@ import {
   Mail,
   History,
   TrendingUp,
-  User
+  User,
+  Copy,
+  Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -479,6 +481,42 @@ export function ReportPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* SALES EMAIL */}
+          {report?.salesEmail && (
+            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.6 }}>
+              <Card className="border-emerald-200 dark:border-emerald-900 shadow-lg bg-emerald-50/30 dark:bg-emerald-950/20 overflow-hidden group">
+                <CardHeader className="pb-2 bg-emerald-100/50 dark:bg-emerald-900/40 border-b border-emerald-100 dark:border-emerald-900">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Dutch Sales Email Draft
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/50"
+                      onClick={() => {
+                        navigator.clipboard.writeText(report.salesEmail || '')
+                        toast.success('Email copied to clipboard!')
+                      }}
+                    >
+                      <Copy className="h-3 w-3 mr-1.5" />
+                      Copy Email
+                    </Button>
+                  </div>
+                  <CardDescription className="text-emerald-800/70 dark:text-emerald-300/60 text-xs">
+                    Professional sales outreach focusing on localization quality.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="bg-white dark:bg-slate-950 p-4 rounded-lg border border-emerald-100 dark:border-emerald-900 text-sm whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-slate-200 font-serif">
+                    {report.salesEmail}
                   </div>
                 </CardContent>
               </Card>

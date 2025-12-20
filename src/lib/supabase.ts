@@ -63,6 +63,17 @@ export type JobReport = {
   }
 }
 
+export type PeopleSearchResult = {
+  id: string
+  url: string
+  title: string
+  publishedDate?: string
+  author?: string
+  text?: string
+  highlights?: string[]
+  score?: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -231,6 +242,29 @@ export type Database = {
           created_at?: string
         }
       }
+      people_searches: {
+        Row: {
+          id: string
+          user_id: string
+          query: string
+          results: PeopleSearchResult[]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          query: string
+          results?: PeopleSearchResult[]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          query?: string
+          results?: PeopleSearchResult[]
+          created_at?: string
+        }
+      }
     }
   }
 }
@@ -352,5 +386,35 @@ export async function linkAnalysis(keywordResultId: string, analysisId: string) 
     .eq('id', keywordResultId)
 
   if (error) throw error
+}
+
+/**
+ * Call the Find People Edge Function
+ */
+export async function findPeople(query: string, userId: string) {
+  const { data, error } = await supabase.functions.invoke('find-people', {
+    body: { query, user_id: userId }
+  })
+
+  if (error) throw error
+  return data as { success: boolean; results: PeopleSearchResult[] }
+}
+
+/**
+ * Get recent people searches for a user
+ */
+export async function getRecentPeopleSearches(userId: string) {
+  const { data, error } = await supabase
+    .from('people_searches')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  if (error) {
+    console.error('Error fetching people searches:', error)
+    return []
+  }
+  return data
 }
 

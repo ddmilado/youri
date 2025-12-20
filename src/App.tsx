@@ -26,6 +26,7 @@ const Report = lazy(() => import('@/pages/report').then(m => ({ default: m.Repor
 const Jobs = lazy(() => import('@/pages/jobs').then(m => ({ default: m.JobsPage })))
 const Settings = lazy(() => import('@/pages/settings').then(m => ({ default: m.SettingsPage })))
 const Debug = lazy(() => import('@/pages/debug').then(m => ({ default: m.DebugPage })))
+const FindPeople = lazy(() => import('@/pages/find-people').then(m => ({ default: m.FindPeoplePage })))
 
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -114,6 +115,18 @@ function App() {
                     <Layout>
                       <Suspense fallback={<LoadingFallback />}>
                         <Jobs />
+                      </Suspense>
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/find-people"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Suspense fallback={<LoadingFallback />}>
+                        <FindPeople />
                       </Suspense>
                     </Layout>
                   </ProtectedRoute>

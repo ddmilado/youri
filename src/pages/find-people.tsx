@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { findPeople, getRecentPeopleSearches, type PeopleSearchResult } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
     Search,
@@ -27,7 +27,7 @@ export function FindPeoplePage() {
     const [results, setResults] = useState<PeopleSearchResult[]>([])
 
     // Fetch recent searches
-    const { data: recentSearches = [], isLoading: isLoadingRecent } = useQuery({
+    const { data: recentSearches = [] } = useQuery({
         queryKey: ['recentPeopleSearches', user?.id],
         queryFn: () => getRecentPeopleSearches(user!.id),
         enabled: !!user?.id

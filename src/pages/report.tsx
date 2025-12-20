@@ -29,8 +29,7 @@ import {
   History,
   TrendingUp,
   User,
-  Copy,
-  Check
+  Copy
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'

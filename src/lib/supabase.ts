@@ -45,6 +45,7 @@ export type JobReport = {
   conclusion: string
   actionList: string[]
   companyInfo?: CompanyInfo
+  salesEmail?: string
   // keeping legacy fields optional for backward compatibility if needed
   issuesCount?: number
   issues?: Array<{

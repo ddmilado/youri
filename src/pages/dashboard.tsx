@@ -5,9 +5,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, TrendingUp, Users, ExternalLink, Filter, Download, MoreHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { supabase, getLeadResults } from '@/lib/supabase'
+import { supabase, getLeadResults, getKeywordSearchResults, getRecentPeopleSearches } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { formatDistanceToNow } from 'date-fns'
+import { Search as SearchIcon, History } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -80,6 +81,20 @@ export function DashboardPage() {
       return await getLeadResults(user.id)
     },
     enabled: !!user,
+  })
+
+  // Fetch Keyword Searches
+  const { data: keywordSearches, isLoading: isLoadingKeywords } = useQuery({
+    queryKey: ['keywordSearches', user?.id],
+    queryFn: () => getKeywordSearchResults(user!.id),
+    enabled: !!user?.id
+  })
+
+  // Fetch People Searches
+  const { data: peopleSearches, isLoading: isLoadingPeople } = useQuery({
+    queryKey: ['peopleSearches', user?.id],
+    queryFn: () => getRecentPeopleSearches(user!.id),
+    enabled: !!user?.id
   })
 
   const stats = {
@@ -158,12 +173,13 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        {/* Main Data View - Tabs for Leads vs Audits */}
-        <Tabs defaultValue="leads" className="w-full">
+        {/* Main Data View - Tabs for Audits, Leads, and Searches */}
+        <Tabs defaultValue="audits" className="w-full">
           <div className="flex items-center justify-between mb-4">
             <TabsList>
-              <TabsTrigger value="leads">AI Leads</TabsTrigger>
               <TabsTrigger value="audits">Recent Audits</TabsTrigger>
+              <TabsTrigger value="leads">AI Leads</TabsTrigger>
+              <TabsTrigger value="searches">Searches</TabsTrigger>
             </TabsList>
           </div>
 
@@ -301,6 +317,76 @@ export function DashboardPage() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="searches" className="m-0 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Keyword Searches Card */}
+              <Card>
+                <CardHeader className="border-b pb-4">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <History className="h-5 w-5 text-emerald-600" />
+                    Keyword Searches
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[500px] overflow-y-auto overflow-x-hidden">
+                    {isLoadingKeywords ? (
+                      <div className="p-4 space-y-2">
+                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                      </div>
+                    ) : keywordSearches && keywordSearches.length > 0 ? (
+                      <div className="divide-y overflow-hidden">
+                        {keywordSearches.map((search) => (
+                          <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
+                            <div className="font-medium truncate" title={search.search_query}>{search.search_query}</div>
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between gap-4">
+                              <span className="truncate">{search.company_name}</span>
+                              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground italic">No recent keyword searches</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* People Searches Card */}
+              <Card>
+                <CardHeader className="border-b pb-4">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <SearchIcon className="h-5 w-5 text-emerald-600" />
+                    People Searches
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[500px] overflow-y-auto overflow-x-hidden">
+                    {isLoadingPeople ? (
+                      <div className="p-4 space-y-2">
+                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                      </div>
+                    ) : peopleSearches && peopleSearches.length > 0 ? (
+                      <div className="divide-y overflow-hidden">
+                        {peopleSearches.map((search) => (
+                          <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
+                            <div className="font-medium truncate" title={search.query}>{search.query}</div>
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between gap-4">
+                              <span className="whitespace-nowrap">{search.results?.length || 0} matches</span>
+                              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground italic">No recent people searches</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 

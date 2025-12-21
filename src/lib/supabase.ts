@@ -88,6 +88,7 @@ export type Database = {
           screenshot_url: string | null
           created_at: string
           completed_at: string | null
+          is_public: boolean
         }
         Insert: {
           id?: string
@@ -99,6 +100,7 @@ export type Database = {
           screenshot_url?: string | null
           created_at?: string
           completed_at?: string | null
+          is_public?: boolean
         }
         Update: {
           id?: string
@@ -110,6 +112,7 @@ export type Database = {
           screenshot_url?: string | null
           created_at?: string
           completed_at?: string | null
+          is_public?: boolean
         }
       }
       ai_lead_results: {

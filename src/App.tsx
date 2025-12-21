@@ -34,6 +34,21 @@ const LoadingFallback = () => (
   </div>
 )
 
+const ReportPageWrapper = () => {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingFallback />
+
+  if (user) {
+    return (
+      <Layout>
+        <Report />
+      </Layout>
+    )
+  }
+
+  return <Report />
+}
+
 function App() {
   // Show configuration error page if Supabase is not configured
   if (!isSupabaseConfigured) {
@@ -99,13 +114,9 @@ function App() {
               <Route
                 path="/report/:id"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Report />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <ReportPageWrapper />
+                  </Suspense>
                 }
               />
               <Route

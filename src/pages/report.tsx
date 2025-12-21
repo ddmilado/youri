@@ -29,10 +29,13 @@ import {
   History,
   TrendingUp,
   User,
-  Copy
+  Copy,
+  Share2
 } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -142,6 +145,33 @@ export function ReportPage() {
     }
   }
 
+  const handleShare = async () => {
+    if (!job) return
+    const newPublicState = !job.is_public
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ is_public: newPublicState })
+        .eq('id', job.id)
+
+      if (error) throw error
+
+      queryClient.setQueryData<Job>(['job', id], { ...job, is_public: newPublicState })
+
+      if (newPublicState) {
+        navigator.clipboard.writeText(window.location.href)
+        toast.success('Report is now public! Link copied to clipboard.')
+      } else {
+        toast.info('Report is now private.')
+      }
+    } catch (error) {
+      toast.error('Failed to update share settings')
+    }
+  }
+
+  const { user } = useAuth()
+  const isOwner = user?.id === job?.user_id
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -236,19 +266,46 @@ export function ReportPage() {
       {/* Top Navigation */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-4 md:px-6 h-auto min-h-[4rem] flex flex-col md:flex-row items-center justify-between py-3 gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Link to="/dashboard">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-8 px-2">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="ml-1 hidden sm:inline">Back</span>
-            </Button>
-          </Link>
-          <div className="hidden md:block w-px h-6 bg-border mx-1"></div>
+          {user && (
+            <Link to="/dashboard">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-8 px-2">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Back</span>
+              </Button>
+            </Link>
+          )}
+          {!user && (
+            <Link to="/">
+              <div className="flex items-center gap-2 mr-4">
+                <img src="/logo.svg" alt="Logo" className="h-6 w-6" />
+                <span className="font-bold text-sm hidden sm:inline">YourIntAI</span>
+              </div>
+            </Link>
+          )}
+          {(user || !user) && <div className="hidden md:block w-px h-6 bg-border mx-1"></div>}
           <div className="flex flex-col min-w-0">
             <h1 className="text-sm font-semibold text-foreground truncate max-w-[150px] sm:max-w-[300px]">{job.title}</h1>
             <p className="text-[10px] text-muted-foreground truncate max-w-[150px] sm:max-w-[300px]">{job.url}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          {isOwner && (
+            <Button
+              variant={job.is_public ? "secondary" : "outline"}
+              size="sm"
+              onClick={handleShare}
+              className="h-8 text-xs gap-1.5"
+            >
+              <Share2 className={cn("h-3.5 w-3.5", job.is_public && "text-emerald-600")} />
+              {job.is_public ? 'Shared' : 'Share'}
+            </Button>
+          )}
+          {!isOwner && job.is_public && (
+            <Badge variant="outline" className="h-8 bg-emerald-50 text-emerald-700 border-emerald-200 gap-1.5">
+              <Share2 className="h-3 w-3" />
+              Public Report
+            </Badge>
+          )}
           <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={isExporting} className="h-8 text-xs">
             {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
             Export

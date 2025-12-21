@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Download, Plus, Sparkles, ExternalLink, MapPin, MoreHorizontal, Loader2 } from 'lucide-react'
+import { Download, Plus, Sparkles, ExternalLink, MapPin, MoreHorizontal, Loader2, Share2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AIResultDialog } from '@/components/ai-result-dialog'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -104,6 +105,30 @@ function JobsPageContent() {
   const downloadPDF = async (job: Job) => {
     // Placeholder for PDF download logic
     toast.info(`Downloading PDF for audit: ${job.title}`)
+  }
+
+  const handleShare = async (job: Job) => {
+    const newPublicState = !job.is_public
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ is_public: newPublicState })
+        .eq('id', job.id)
+
+      if (error) throw error
+
+      queryClient.invalidateQueries({ queryKey: ['all-jobs'] })
+
+      if (newPublicState) {
+        const shareUrl = `${window.location.origin}/report/${job.id}`
+        navigator.clipboard.writeText(shareUrl)
+        toast.success('Report shared! Link copied to clipboard.')
+      } else {
+        toast.info('Report is now private.')
+      }
+    } catch (error) {
+      toast.error('Failed to update share settings')
+    }
   }
 
   return (
@@ -297,9 +322,19 @@ function JobsPageContent() {
                         </TableCell>
                         <TableCell className="text-right space-x-2">
                           {job.status === 'completed' && (
-                            <Button variant="ghost" size="sm" onClick={() => downloadPDF(job)}>
-                              <Download className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleShare(job)}
+                                className={cn(job.is_public && "text-emerald-600 bg-emerald-50")}
+                              >
+                                <Share2 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => downloadPDF(job)}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
                           <Link to={job.status === 'completed' ? `/report/${job.id}` : '#'}>
                             <Button variant="outline" size="sm">View Report</Button>

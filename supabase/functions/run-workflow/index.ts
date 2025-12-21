@@ -47,7 +47,6 @@ interface JobReport {
     sections: AuditSection[]
     conclusion: string
     actionList: string[]
-    salesEmail?: string
     issuesCount?: number
     companyInfo?: CompanyInfo
 }
@@ -372,16 +371,6 @@ async function executeAuditWorkflow(
     const agent5Instruction = `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue (estimate is ok). 
     Find key leadership names, titles, LinkedIn profiles, and emails. Specifically look for the FOUNDER or MARKETING MANAGER. Use "Not found" for missing fields.`
 
-    // 7. Sales Specialist (Dutch)
-    const agent7Instruction = `You are a Helpful Expert Sales Consultant. Your goal is to draft a professional, helpful "cold" sales email in DUTCH to a founder or marketing manager.
-    
-    The email must focus on improving their international/German presence by pointing out ONE specific, embarrassing or high-impact language/localization error you found on their site (use the provided context).
-    
-    STRICT FORMAT for the core analysis part (must be in Dutch):
-    Taalkundig/Raar: [One sentence explaining why the text is linguistically incorrect, strange, or awkward (grammar, spelling mistake, unnatural/literal translation, or language mix)]
-    Red Flag/Conversie: [One sentence explaining why this error is a problem for international customers, focusing on the loss of trust, professionalism, or conversion]
-    
-    The email should be professional, empathetic, and offer help. Do not be overly aggressive.`
 
     // 6. Localization Specialist
     const agent6Instruction = `You are a German Localization Expert. 
@@ -403,16 +392,15 @@ async function executeAuditWorkflow(
     - Recommendation: How to fix it
     - Severity: high/medium/low`
 
-    console.log('Starting granular parallel analysis (6 Agents)...')
+    console.log('Starting granular parallel analysis (5 Agents)...')
 
-    const [res1, res2, res3, res4, res5, res6, res7] = await Promise.all([
+    const [res1, res2, res3, res4, res5, res6] = await Promise.all([
         callOpenAI(apiKey, agent1Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent2Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent3Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent4Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent5Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
-        callOpenAI(apiKey, agent6Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
-        callOpenAI(apiKey, agent7Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.7)
+        callOpenAI(apiKey, agent6Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5)
     ])
 
     console.log('Granular analysis complete. Compiling final report...')
@@ -424,8 +412,7 @@ async function executeAuditWorkflow(
         { role: 'assistant', content: `Privacy Analysis: ${res3}` },
         { role: 'assistant', content: `UX & CTR Analysis: ${res4}` },
         { role: 'assistant', content: `Company Research: ${res5}` },
-        { role: 'assistant', content: `German Localization Analysis: ${res6}` },
-        { role: 'assistant', content: `Dutch Sales Email Draft: ${res7}` }
+        { role: 'assistant', content: `German Localization Analysis: ${res6}` }
     ]
 
     const compilerInstruction = `You are the Lead Auditor. Combine the provided analyses into a single, comprehensive JSON Deep Audit Report.
@@ -455,7 +442,6 @@ async function executeAuditWorkflow(
       ],
       "conclusion": "Final wrap-up.",
       "actionList": ["Action 1", "Action 2", ...],
-      "salesEmail": "The full drafted Dutch sales email text."
     }
     
     The sections SHOULD include: "Impressum & AGB", "Consumer Rights & Returns", "Shipping & Delivery", "Data Privacy (GDPR)", "UX & CTR Killers", and "German Localization".

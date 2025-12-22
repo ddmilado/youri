@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/auth-context'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, Plus, History, Settings, LogOut, Moon, Sun, Menu, Search } from 'lucide-react'
+import { LayoutDashboard, Plus, History, Settings, LogOut, Moon, Sun, Menu, Search, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -12,6 +12,7 @@ const navItems = [
   { icon: Plus, label: 'New Audit', path: '/new' },
   { icon: History, label: 'Audit Results', path: '/jobs' },
   { icon: Search, label: 'Find People', path: '/find-people' },
+  { icon: BookOpen, label: 'Documentation', path: '/docs' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ]
 

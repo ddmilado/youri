@@ -13,6 +13,7 @@ const corsHeaders = {
 interface WorkflowInput {
     input_as_text: string
     user_id: string
+    job_id?: string
 }
 
 interface AuditSection {
@@ -65,7 +66,7 @@ serve(async (req) => {
         const body = await req.text()
         console.log('Request body:', body)
 
-        const { input_as_text, user_id } = JSON.parse(body) as WorkflowInput
+        const { input_as_text, user_id, job_id: providedJobId } = JSON.parse(body) as WorkflowInput
 
         if (!input_as_text) {
             throw new Error('input_as_text is required')
@@ -94,7 +95,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // Step 0: Create initial Job entry
+        // Step 0: Resolve or Create Job entry
         let jobTitle = input_as_text
         const urlMatch = input_as_text.match(/(https?:\/\/[^\s]+)/i)
         const targetUrl = urlMatch ? urlMatch[1] : input_as_text
@@ -105,36 +106,62 @@ serve(async (req) => {
             jobTitle = urlObj.hostname
         } catch (e) { }
 
-        const { data: job, error: jobError } = await supabaseClient
-            .from('jobs')
-            .insert({
-                user_id,
-                title: jobTitle,
-                url: targetUrl,
-                status: 'processing',
-                status_message: 'Initializing audit...'
-            })
-            .select()
-            .single()
+        let jobId = providedJobId
 
-        if (jobError) {
-            throw new Error(`Failed to create job: ${jobError.message}`)
+        if (jobId) {
+            console.log(`Using provided Job ID: ${jobId}`)
+            const { error: updateError } = await supabaseClient
+                .from('jobs')
+                .update({
+                    status: 'processing',
+                    status_message: 'Initializing audit...'
+                })
+                .eq('id', jobId)
+
+            if (updateError) throw new Error(`Failed to update existing job: ${updateError.message}`)
+        } else {
+            const { data: job, error: jobError } = await supabaseClient
+                .from('jobs')
+                .insert({
+                    user_id,
+                    title: jobTitle,
+                    url: targetUrl,
+                    status: 'processing',
+                    status_message: 'Initializing audit...'
+                })
+                .select()
+                .single()
+
+            if (jobError) {
+                throw new Error(`Failed to create job: ${jobError.message}`)
+            }
+            jobId = job.id
+            console.log(`New Job created with ID: ${jobId}`)
         }
 
-        const jobId = job.id
-        console.log(`Job created with ID: ${jobId}`)
+        // Initialize status channel for Broadcast
+        const statusChannel = supabaseClient.channel(`job-status-${jobId}`)
 
         // Helper function for status updates
         const updateStatus = async (msg: string) => {
             console.log(`[Status Update] ${msg}`)
+
+            // 1. Persist to DB
             await supabaseClient
                 .from('jobs')
                 .update({ status_message: msg })
                 .eq('id', jobId)
+
+            // 2. Broadcast in real-time (Using httpSend: true for Serverless reliability)
+            await statusChannel.send({
+                type: 'broadcast',
+                event: 'status_update',
+                payload: { message: msg, status: 'processing', id: jobId }
+            }, { httpSend: true })
         }
 
         // Start processing
-        await updateStatus('Analyzing website layout and languages...')
+        await updateStatus('Initializing 10-Agent Auditor Squad...')
 
         // Step 1: Extract Language Signals (The "100% Fix" for Dropdowns)
         console.log('Extracting language signals from homepage...')
@@ -148,7 +175,6 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                     url: targetUrl,
-                    status_message: 'Extracting language signals from homepage...',
                     formats: ['extract'],
                     extract: {
                         schema: {
@@ -182,7 +208,7 @@ serve(async (req) => {
 
                     // Step 1.5: Targeted German Content Scrape (The "Bulletproof" Part)
                     if (ext.hasLanguageSwitcher || ext.germanVersionUrl || ext.germanSelector) {
-                        await updateStatus('Found German version entry point. Scraping localized content...')
+                        await updateStatus('Detected German entry points. Scraping localized content samples...')
                         console.log('Detected German version entry point. Performing targeted scrape...')
                         try {
                             const germanScrapeUrl = ext.germanVersionUrl || targetUrl
@@ -230,7 +256,7 @@ serve(async (req) => {
         let screenshotUrl = null
 
         if (targetUrl) {
-            await updateStatus('Crawling website pages for analysis...')
+            await updateStatus('Scanning Legal & Compliance pages (Impressum, AGB, GDPR)...')
             console.log('Crawling website:', targetUrl)
 
             try {
@@ -263,7 +289,10 @@ serve(async (req) => {
                         let attempts = 0
                         const maxAttempts = 30 // 60 seconds max
                         while (attempts < maxAttempts) {
-                            if (attempts % 5 === 0) await updateStatus(`Crawling in progress... (${attempts * 2}s elapsed)`)
+                            if (attempts === 5) await updateStatus('Evaluating UX conversion markers & trust signals...')
+                            if (attempts === 15) await updateStatus('Analyzing E-commerce & checkout transparency...')
+                            if (attempts === 25) await updateStatus('Synthesizing technical SEO & content hierarchy...')
+
                             await new Promise(resolve => setTimeout(resolve, 2000))
 
                             const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${crawlJobId}`, {
@@ -298,7 +327,7 @@ serve(async (req) => {
         }
 
         // Execute the Deep Audit Agent Workflow
-        await updateStatus('Launching AI Auditor Agents...')
+        await updateStatus('Launching 10 Specialized AI Auditor Agents...')
         const auditReport = await executeAuditWorkflow(targetUrl, scrapedContent, openaiApiKey, updateStatus)
 
         // Update Job with result
@@ -308,13 +337,23 @@ serve(async (req) => {
                 status: 'completed',
                 report: auditReport,
                 status_message: 'Audit completed!',
-                completed_at: new Date().toISOString()
+                completed_at: new Date().toISOString(),
+                score: auditReport.score // Persist the calculated score
             })
             .eq('id', jobId)
 
         if (updateError) {
             console.error('Error updating job:', updateError)
         }
+
+        // Final broadcast (Using httpSend: true)
+        await statusChannel.send({
+            type: 'broadcast',
+            event: 'status_update',
+            payload: { message: 'Audit completed!', status: 'completed', id: jobId }
+        }, { httpSend: true })
+
+        await supabaseClient.removeChannel(statusChannel)
 
         return new Response(
             JSON.stringify({
@@ -421,16 +460,50 @@ async function executeAuditWorkflow(
     - Recommendation: How to fix it
     - Severity: high/medium/low`
 
-    await updateStatus('Deploying parallel specialized agents (Legal, Privacy, UX, Localization, Researchers)...')
-    console.log('Starting granular parallel analysis (6 Agents)...')
+    // 7. SEO & Technical Technical Content Auditor
+    const agent7Instruction = `You are a Technical SEO Specialist. Focus on content hierarchy, meta tags, and technical signals found in the text.
+    1. Analyze H1-H6 structure consistency.
+    2. Check for missing meta descriptions or SEO title issues.
+    3. Identify accessibility issues (e.g. missing alt text references).
+    For each issue found, provide: Problem, Explanation, Recommendation, Severity.`
 
-    const [res1, res2, res3, res4, res5, res6] = await Promise.all([
+    // 8. Sales & Trust Signal Specialist
+    const agent8Instruction = `You are a Psychological Trust Auditor. Focus on social proof and brand credibility.
+    1. Identify weak or missing testimonials/reviews.
+    2. Evaluate the "About Us" page for authentic human connection.
+    3. Check for high-quality trust badges (Tuev, Trusted Shops, etc.) or their absence.
+    4. Detect "fake urgency" or "scarcity" dark patterns.
+    For each issue found, provide: Problem, Explanation, Recommendation, Severity.`
+
+    // 9. Checkout & Transaction Specialist
+    const agent9Instruction = `You are a Checkout Process Specialist. Focus on the path to purchase and payment transparency.
+    1. Analyze payment method visibility before checkout.
+    2. Check for hidden costs or surprise handling fees.
+    3. Identify "forced account creation" or conversion killers in the basket.
+    4. Compliance check for "Order with obligation to pay" (Button-Loesung).
+    For each issue found, provide: Problem, Explanation, Recommendation, Severity.`
+
+    // 10. Price Transparency & Promotion Specialist
+    const agent10Instruction = `You are a Price Transparency Auditor. Focus on how products are priced and promoted.
+    1. Check for VAT inclusion/exclusion transparency ("inkl. MwSt.").
+    2. Analyze cross-out pricing (Streichpreise) and discount legality.
+    3. Check for shipping cost transparency near price tags.
+    For each issue found, provide: Problem, Explanation, Recommendation, Severity.`
+
+    await updateStatus('Deploying 10 specialized AI Auditor Agents for granular analysis...')
+    console.log('Starting granular parallel analysis (10 Agents)...')
+
+    const [res1, res2, res3, res4, res5, res6, res7, res8, res9, res10] = await Promise.all([
         callOpenAI(apiKey, agent1Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent2Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent3Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent4Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
         callOpenAI(apiKey, agent5Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
-        callOpenAI(apiKey, agent6Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5)
+        callOpenAI(apiKey, agent6Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
+        callOpenAI(apiKey, agent7Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
+        callOpenAI(apiKey, agent8Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
+        callOpenAI(apiKey, agent9Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
+        callOpenAI(apiKey, agent10Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5)
     ])
 
     console.log('Granular analysis complete. Compiling final report...')
@@ -438,12 +511,16 @@ async function executeAuditWorkflow(
 
     const compilerMessages = [
         { role: 'user', content: baseContext },
-        { role: 'assistant', content: `Impressum & AGB Analysis: ${res1}` },
-        { role: 'assistant', content: `Consumer Rights & Shipping Analysis: ${res2}` },
-        { role: 'assistant', content: `Privacy Analysis: ${res3}` },
-        { role: 'assistant', content: `UX & CTR Analysis: ${res4}` },
-        { role: 'assistant', content: `Company Research: ${res5}` },
-        { role: 'assistant', content: `German Localization Analysis: ${res6}` }
+        { role: 'assistant', content: `Legal (Impressum/AGB): ${res1}` },
+        { role: 'assistant', content: `Consumer Rights: ${res2}` },
+        { role: 'assistant', content: `GDPR & Privacy: ${res3}` },
+        { role: 'assistant', content: `UX & CTR: ${res4}` },
+        { role: 'assistant', content: `Company Stats: ${res5}` },
+        { role: 'assistant', content: `Localization Quality: ${res6}` },
+        { role: 'assistant', content: `SEO & Technical: ${res7}` },
+        { role: 'assistant', content: `Trust & Social Proof: ${res8}` },
+        { role: 'assistant', content: `Checkout & Payments: ${res9}` },
+        { role: 'assistant', content: `Price Transparency: ${res10}` }
     ]
 
     const compilerInstruction = `You are the Lead Auditor. Combine the provided analyses into a single, comprehensive JSON Deep Audit Report.
@@ -503,19 +580,32 @@ async function executeAuditWorkflow(
         const cleanJson = resCompiler.substring(firstBrace, lastBrace + 1)
         const parsed = JSON.parse(cleanJson)
 
-        const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
+        const sections = parsed.sections || []
+        const totalFindings = sections.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
 
-        // Calculate score
-        let calculatedScore = 100
-        parsed.sections?.forEach((section: any) => {
+        // 1. Calculate health for each section individually (0-100)
+        // This prevents 10 agents from collectively sinking the score to 0 immediately.
+        const sectionScores = sections.map((section: any) => {
+            let sScore = 100
             section.findings?.forEach((finding: any) => {
                 const sev = finding.severity?.toLowerCase()
-                if (sev === 'high' || sev === 'critical') calculatedScore -= 10
-                else if (sev === 'medium') calculatedScore -= 5
-                else if (sev === 'low') calculatedScore -= 2
+                if (sev === 'high' || sev === 'critical') sScore -= 25
+                else if (sev === 'medium') sScore -= 10
+                else if (sev === 'low') sScore -= 4
             })
+            return Math.max(0, sScore)
         })
-        calculatedScore = Math.max(0, calculatedScore)
+
+        // 2. Final Score is the average of section healths
+        // If no sections, default to 100.
+        let calculatedScore = 100
+        if (sectionScores.length > 0) {
+            const sum = sectionScores.reduce((a: number, b: number) => a + b, 0)
+            calculatedScore = Math.round(sum / sectionScores.length)
+        }
+
+        // 3. Global floor: Hard to get a '0' unless everything is catastrophic
+        calculatedScore = Math.max(5, calculatedScore)
 
         return { ...parsed, issuesCount: totalFindings, score: calculatedScore }
     } catch (e) {

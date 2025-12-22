@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Database, type AuditSection } from '@/lib/supabase'
+import { supabase, type Database, type AuditSection, runAIWorkflow } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -42,19 +42,12 @@ import html2canvas from 'html2canvas'
 
 type Job = Database['public']['Tables']['jobs']['Row']
 
-const loadingSteps = [
-  'Launching AI agents...',
-  'Crawling website content...',
-  'Analyzing legal compliance...',
-  'Checking UX & Conversion...',
-  'Compiling final report...',
-]
+
 
 export function ReportPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [loadingStep, setLoadingStep] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -81,20 +74,16 @@ export function ReportPage() {
     }
   }, [id, queryClient])
 
-  useEffect(() => {
-    if (job?.status === 'processing' || job?.status === 'pending') {
-      const interval = setInterval(() => {
-        setLoadingStep((prev) => (prev + 1) % loadingSteps.length)
-      }, 3000)
-      return () => clearInterval(interval)
-    }
-  }, [job?.status])
+
 
   useEffect(() => {
     if (job?.status === 'failed') {
       toast.error('Audit failed. Please try again.')
     }
   }, [job?.status])
+
+  const { user } = useAuth()
+  const isOwner = user?.id === job?.user_id
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current || !job) return
@@ -169,8 +158,7 @@ export function ReportPage() {
     }
   }
 
-  const { user } = useAuth()
-  const isOwner = user?.id === job?.user_id
+
 
   if (isLoading) {
     return (
@@ -238,41 +226,17 @@ export function ReportPage() {
     }
   }
 
-  // Loading State Overlay
+
   if (job.status === 'processing' || job.status === 'pending') {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
-          <Card className="border-emerald-100 shadow-lg">
-            <CardHeader className="text-center pb-2">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
-              </div>
-              <CardTitle className="text-xl text-emerald-950 dark:text-emerald-50">Analyzing Website</CardTitle>
-              <CardDescription>{job.url}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Progress value={job.status_message ? undefined : (loadingStep + 1) * (100 / loadingSteps.length)} className="h-2 bg-emerald-100" />
-                  {job.status_message && <div className="absolute inset-0 bg-emerald-500/20 animate-pulse rounded-full h-2"></div>}
-                </div>
-                <AnimatePresence mode="wait">
-                  <motion.p
-                    key={job.status_message || loadingStep}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="text-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 min-h-[1.5rem]"
-                  >
-                    {job.status_message || loadingSteps[loadingStep]}
-                  </motion.p>
-                </AnimatePresence>
-              </div>
-              <p className="text-center text-xs text-muted-foreground">This deep audit may take up to 60 seconds.</p>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+          <p className="text-muted-foreground animate-pulse">Waiting for analysis results to populate...</p>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/processing/${id}`)}>
+            View Progress
+          </Button>
+        </div>
       </div>
     )
   }

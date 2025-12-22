@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/auth-context'
-import { runAIWorkflow, runKeywordSearch } from '@/lib/supabase'
+import { supabase, runAIWorkflow, runKeywordSearch } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner'
 import { Loader2, Search, Sparkles, Link as LinkIcon } from 'lucide-react'
 import { z } from 'zod'
+import { ProcessingOverlay } from '@/components/processing-overlay'
+import { AnimatePresence } from 'framer-motion'
 
 const formSchema = z.object({
   inputText: z.string().min(1, 'Please enter a keyword or URL'),
@@ -19,6 +21,10 @@ export function NewAuditPage() {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [workflowType, setWorkflowType] = useState<'keyword' | 'url'>('keyword')
+  const [processingJobId, setProcessingJobId] = useState<string | null>(null)
+  const [isSearchProcessing, setIsSearchProcessing] = useState(false)
+  const [isSearchComplete, setIsSearchComplete] = useState(false)
+
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -44,51 +50,49 @@ export function NewAuditPage() {
     try {
       if (workflowType === 'keyword') {
         // Keyword search workflow
-        setProgress('Searching for companies...')
-        const result = await runKeywordSearch(inputText, user.id)
+        const searchId = crypto.randomUUID()
+        setProcessingJobId(searchId) // Use this as the channel ID
+        setIsSearchProcessing(true)
+        setIsSearchComplete(false)
+
+        const result = await runKeywordSearch(inputText, user.id, searchId)
 
         if (result.success) {
-          setProgress('Search complete!')
+          setIsSearchComplete(true)
           toast.success(`Found ${result.count || 0} companies!`)
-
-          setTimeout(() => {
-            navigate('/jobs')
-          }, 1000)
         } else {
+          setIsSearchProcessing(false)
+          setProcessingJobId(null)
           toast.error(result.error || 'Failed to complete search')
         }
       } else {
         // URL analysis workflow
-        setProgress('Initializing AI workflow...')
-        setProgress('Running multi-agent analysis...')
-        const result = await runAIWorkflow(inputText, user.id)
+        const { data: newJob, error: insertError } = await supabase
+          .from('jobs')
+          .insert({
+            user_id: user.id,
+            url: inputText,
+            title: (inputText.includes('://') ? new URL(inputText).hostname : inputText) || inputText,
+            status: 'pending'
+          })
+          .select()
+          .single()
 
-        if (result.success) {
-          setProgress('Analysis complete!')
-          toast.success('Deep audit completed successfully!')
+        if (insertError) throw insertError
 
-          // In standard flow, the backend might return job_id directly
-          // We check for job_id (new flow) or fall back to ID (legacy flow if any)
-          const redirectId = result.job_id || result.result?.id
-
-          setTimeout(() => {
-            // Redirect to the report page
-            if (redirectId) {
-              navigate(`/report/${redirectId}`)
-            } else {
-              navigate('/dashboard')
-            }
-          }, 1000)
-        } else {
-          toast.error(result.error || 'Failed to complete analysis')
+        if (newJob) {
+          setProcessingJobId(newJob.id)
+          runAIWorkflow(inputText, user.id, newJob.id).catch(err => {
+            console.error('Workflow trigger failed:', err)
+          })
         }
       }
     } catch (error) {
       console.error('Workflow error:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to run workflow')
+      setIsSearchProcessing(false)
     } finally {
       setLoading(false)
-      setProgress('')
     }
   }
 
@@ -198,20 +202,6 @@ export function NewAuditPage() {
               </div>
             </div>
 
-            {loading && progress && (
-              <div className="bg-muted/50 border border-border rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{progress}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {workflowType === 'keyword' ? 'Searching for companies...' : 'AI agents are analyzing the data...'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <Button
               type="submit"
               size="lg"
@@ -245,6 +235,28 @@ export function NewAuditPage() {
           </form>
         </CardContent>
       </Card>
+
+      <AnimatePresence>
+        {processingJobId && (
+          <ProcessingOverlay
+            jobId={processingJobId}
+            onClose={() => setProcessingJobId(null)}
+          />
+        )}
+        {isSearchProcessing && (
+          <ProcessingOverlay
+            type="search"
+            jobId={processingJobId || undefined}
+            manualSubtitle={inputText}
+            isManualComplete={isSearchComplete}
+            onManualComplete={() => {
+              navigate('/jobs')
+              setIsSearchProcessing(false)
+            }}
+            onClose={() => setIsSearchProcessing(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

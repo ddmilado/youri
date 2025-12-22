@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   screenshot_url text,
   status_message text,
   created_at timestamp with time zone DEFAULT now(),
-  completed_at timestamp with time zone
+  completed_at timestamp with time zone,
+  score integer
 );
 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS is_public boolean DEFAULT false;
@@ -23,3 +24,8 @@ CREATE POLICY "Users can manage own jobs" ON jobs
 CREATE POLICY "Allow public read access to public jobs"
   ON jobs FOR SELECT
   USING (is_public = true);
+
+-- Enable real-time for this table
+-- Run this in your Supabase SQL Editor:
+-- ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
+-- ALTER TABLE jobs REPLICA IDENTITY FULL;

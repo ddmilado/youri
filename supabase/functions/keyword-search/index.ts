@@ -13,6 +13,7 @@ const corsHeaders = {
 interface WorkflowInput {
     input_as_text: string
     user_id: string
+    search_id?: string
 }
 
 interface SearchResult {
@@ -32,7 +33,7 @@ serve(async (req) => {
         const body = await req.text()
         console.log('Request body:', body)
 
-        const { input_as_text, user_id } = JSON.parse(body) as WorkflowInput
+        const { input_as_text, user_id, search_id } = JSON.parse(body) as WorkflowInput
 
         if (!input_as_text) {
             throw new Error('input_as_text is required')
@@ -40,6 +41,25 @@ serve(async (req) => {
 
         if (!user_id) {
             throw new Error('user_id is required')
+        }
+
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+
+        // Realtime status broadcaster
+        const statusChannel = search_id ? supabaseClient.channel(`search-status-${search_id}`) : null
+
+        const updateStatus = async (msg: string) => {
+            console.log(`[Status Update] ${msg}`)
+            if (statusChannel) {
+                await statusChannel.send({
+                    type: 'broadcast',
+                    event: 'status_update',
+                    payload: { message: msg, status: 'processing' }
+                }, { httpSend: true })
+            }
         }
 
         // Get API keys from environment
@@ -55,21 +75,21 @@ serve(async (req) => {
         }
 
         console.log('Starting real keyword search workflow for:', input_as_text)
+        await updateStatus('Deploying Discovery Crawlers...')
 
         // 1. Perform Real Web Search via Firecrawl
+        await updateStatus('Searching Global & German indices via Firecrawl...')
         const rawSearchResults = await performFirecrawlSearch(input_as_text, firecrawlApiKey)
         console.log(`Firecrawl returned ${rawSearchResults.length} raw results`)
 
         // 2. Use OpenAI to Format and Filter Results
+        await updateStatus('Filtering for high-quality leads with AI...')
         const cleanResults = await formatSearchResults(rawSearchResults, openaiApiKey)
         console.log(`OpenAI formatted ${cleanResults.length} clean results`)
 
-        // Save results to Supabase
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
+        await updateStatus('Finalizing discovery batch...')
 
+        // Save results to Supabase
         const resultsToInsert = cleanResults.map((result: SearchResult) => ({
             user_id,
             search_query: input_as_text,
@@ -91,6 +111,15 @@ serve(async (req) => {
                 throw new Error(`Database error: ${insertError.message}`)
             }
             console.log(`Saved ${data?.length} results to database`)
+        }
+
+        // Send completion signal
+        if (statusChannel) {
+            await statusChannel.send({
+                type: 'broadcast',
+                event: 'status_update',
+                payload: { message: 'Search complete!', status: 'completed' }
+            }, { httpSend: true })
         }
 
         return new Response(

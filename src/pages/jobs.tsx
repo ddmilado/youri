@@ -33,7 +33,7 @@ type LeadResult = Database['public']['Tables']['ai_lead_results']['Row']
 function JobsPageContent() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'audits' | 'searches' | 'leads'>('leads')
+  const [activeTab, setActiveTab] = useState<'audits' | 'searches' | 'leads'>('audits')
   const [selectedLead, setSelectedLead] = useState<LeadResult | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -151,14 +151,14 @@ function JobsPageContent() {
         <div className="mb-6">
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
             <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="leads" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                AI Analysis
+              <TabsTrigger value="audits" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                Site Audits
               </TabsTrigger>
               <TabsTrigger value="searches" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 Keyword Searches
               </TabsTrigger>
-              <TabsTrigger value="audits" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Site Audits
+              <TabsTrigger value="leads" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                AI Analysis
               </TabsTrigger>
             </TabsList>
           </Tabs>

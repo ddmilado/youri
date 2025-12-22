@@ -93,6 +93,7 @@ export type Database = {
           created_at: string
           completed_at: string | null
           is_public: boolean
+          score: number | null
         }
         Insert: {
           id?: string
@@ -106,6 +107,7 @@ export type Database = {
           created_at?: string
           completed_at?: string | null
           is_public?: boolean
+          score?: number | null
         }
         Update: {
           id?: string
@@ -119,6 +121,7 @@ export type Database = {
           created_at?: string
           completed_at?: string | null
           is_public?: boolean
+          score?: number | null
         }
       }
       ai_lead_results: {
@@ -312,11 +315,12 @@ export async function getLeadResultById(id: string) {
 /**
  * Call the Supabase Edge Function to run the OpenAI workflow
  */
-export async function runAIWorkflow(inputText: string, userId: string) {
+export async function runAIWorkflow(inputText: string, userId: string, jobId?: string) {
   const { data, error } = await supabase.functions.invoke('run-workflow', {
     body: {
       input_as_text: inputText,
-      user_id: userId
+      user_id: userId,
+      job_id: jobId
     }
   })
 
@@ -370,11 +374,12 @@ export async function getKeywordResultById(id: string) {
 /**
  * Run keyword search workflow
  */
-export async function runKeywordSearch(keywords: string, userId: string) {
+export async function runKeywordSearch(keywords: string, userId: string, searchId?: string) {
   const { data, error } = await supabase.functions.invoke('keyword-search', {
     body: {
       input_as_text: keywords,
-      user_id: userId
+      user_id: userId,
+      search_id: searchId
     }
   })
 

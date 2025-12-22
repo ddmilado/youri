@@ -252,7 +252,7 @@ export function DocsPage() {
                                 <h4 className="font-bold text-sm">Concurrency (Speed)</h4>
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed">
-                                Each audit triggers 8 parallel agents simultaneously. This is why we can provide a 50-page deep-audit in under 180 seconds.
+                                Each audit triggers 8 parallel agents simultaneously. This is why we can provide a deep-audit in under 180 seconds.
                             </p>
                         </div>
                     </div>

@@ -48,6 +48,7 @@ interface JobReport {
     conclusion: string
     actionList: string[]
     issuesCount?: number
+    score?: number
     companyInfo?: CompanyInfo
 }
 
@@ -472,7 +473,20 @@ async function executeAuditWorkflow(
         const parsed = JSON.parse(cleanJson)
 
         const totalFindings = parsed.sections?.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0) || 0
-        return { ...parsed, issuesCount: totalFindings }
+
+        // Calculate score
+        let calculatedScore = 100
+        parsed.sections?.forEach((section: any) => {
+            section.findings?.forEach((finding: any) => {
+                const sev = finding.severity?.toLowerCase()
+                if (sev === 'high' || sev === 'critical') calculatedScore -= 10
+                else if (sev === 'medium') calculatedScore -= 5
+                else if (sev === 'low') calculatedScore -= 2
+            })
+        })
+        calculatedScore = Math.max(0, calculatedScore)
+
+        return { ...parsed, issuesCount: totalFindings, score: calculatedScore }
     } catch (e) {
         console.error("JSON Parse Error. Raw response:", resCompiler)
         console.error(e)

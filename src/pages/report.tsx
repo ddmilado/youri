@@ -194,6 +194,21 @@ export function ReportPage() {
   const isDeepAudit = job.report && 'sections' in job.report
   const report = job.report
 
+  // Calculate score if not present in report
+  const auditScore = report?.score ?? (() => {
+    if (!report || !report.sections) return 0
+    let score = 100
+    report.sections.forEach(section => {
+      section.findings.forEach(finding => {
+        const sev = finding.severity?.toLowerCase()
+        if (sev === 'high' || sev === 'critical') score -= 10
+        else if (sev === 'medium') score -= 5
+        else if (sev === 'low') score -= 2
+      })
+    })
+    return Math.max(0, score)
+  })()
+
   // Severity helpers
   const getSeverityColor = (severity: string) => {
     switch (severity?.toLowerCase()) {
@@ -348,11 +363,11 @@ export function ReportPage() {
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center w-full md:min-w-[200px] md:w-auto border border-white/10 mt-4 md:mt-0">
                   <span className="text-slate-300 text-sm font-medium mb-2">Audit Score</span>
                   <div className="text-4xl md:text-5xl font-bold text-white mb-1">
-                    {job.status === 'completed' ? 85 : 0}
+                    {job.status === 'completed' ? auditScore : 0}
                     <span className="text-lg text-slate-400 font-normal">/100</span>
                   </div>
                   <div className="w-full bg-white/20 h-1.5 rounded-full mt-2">
-                    <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: '85%' }}></div>
+                    <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${job.status === 'completed' ? auditScore : 0}%` }}></div>
                   </div>
                 </div>
               </div>

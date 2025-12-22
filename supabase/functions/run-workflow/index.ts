@@ -39,6 +39,8 @@ interface CompanyInfo {
     founded?: number
     employees?: string
     revenue?: string
+    email?: string
+    phone?: string
     contacts: Contact[]
 }
 
@@ -228,7 +230,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                         url: targetUrl,
-                        limit: 10, // Increased limit to find contact/legal pages better
+                        limit: 20, // Increased limit to find contact/about/team pages better
                         scrapeOptions: {
                             formats: ['markdown'],
                             onlyMainContent: true
@@ -330,7 +332,8 @@ async function executeAuditWorkflow(
     apiKey: string
 ): Promise<JobReport> {
 
-    const baseContext = `Analyze this website: ${url}\n\n[CONTEXT START]\n${scrapedContent.substring(0, 30000)}\n[CONTEXT END]`
+    // Increase context to 60,000 characters (approx 12k-15k tokens)
+    const baseContext = `Analyze this website: ${url}\n\n[CONTEXT START]\n${scrapedContent.substring(0, 60000)}\n[CONTEXT END]`
 
     // 1. Impressum & AGB Specialist
     const agent1Instruction = `You are a German Legal Specialist. Focus on Impressum (Provider ID) and AGB (Terms). 
@@ -370,7 +373,15 @@ async function executeAuditWorkflow(
 
     // 5. Business Intelligence Specialist
     const agent5Instruction = `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue (estimate is ok). 
-    Find key leadership names, titles, LinkedIn profiles, and emails. Specifically look for the FOUNDER or MARKETING MANAGER. Use "Not found" for missing fields.`
+    
+    EXTREMELY IMPORTANT: 
+    1. Find official company contact information: Email address and Phone number.
+    2. Find as many key people as possible (Founders, CEO, Directors, Marketing Managers, HR, etc.).
+    3. For EACH person, find their Name, Title/Role, LinkedIn profile URL, and Email (if available).
+    4. If multiple emails or phone numbers are found, list the most relevant ones.
+    5. HINT: For German companies, look specifically at the "Impressum" or "Legal Notice" page for the names of Authorized Representatives (Vertretungsberechtigte) or Managing Directors (Geschäftsführer).
+    
+    Format your response to be easily parseable, specifically mentioning Phone and Email for the company itself.`
 
 
     // 6. Localization Specialist
@@ -426,6 +437,7 @@ async function executeAuditWorkflow(
       "overview": "Detailed executive summary of the site's overall quality and legal risk.",
       "companyInfo": {
         "name": "...", "industry": "...", "hq_location": "...", "founded": 1999 | null, "employees": "...", "revenue": "...", 
+        "email": "company general email", "phone": "company main phone",
         "contacts": [{ "name": "...", "title": "...", "linkedin": "...", "email": "..." }]
       },
       "sections": [

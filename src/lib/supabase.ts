@@ -36,6 +36,8 @@ export type CompanyInfo = {
   founded?: number
   employees?: string
   revenue?: string
+  email?: string
+  phone?: string
   contacts: Contact[]
 }
 

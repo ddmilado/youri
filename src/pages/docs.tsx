@@ -4,11 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     BookOpen,
     Search,
-    Shield,
     Zap,
     Cpu,
     Target,
-    ChevronRight,
     Clock,
     Layers,
     CheckCircle2,

@@ -111,7 +111,8 @@ serve(async (req) => {
                 user_id,
                 title: jobTitle,
                 url: targetUrl,
-                status: 'processing'
+                status: 'processing',
+                status_message: 'Initializing audit...'
             })
             .select()
             .single()
@@ -123,8 +124,17 @@ serve(async (req) => {
         const jobId = job.id
         console.log(`Job created with ID: ${jobId}`)
 
-        // Start processing in background (but we wait for it here in this sync version for simplicity/demo)
-        // In a real prod environment, you might decouple this.
+        // Helper function for status updates
+        const updateStatus = async (msg: string) => {
+            console.log(`[Status Update] ${msg}`)
+            await supabaseClient
+                .from('jobs')
+                .update({ status_message: msg })
+                .eq('id', jobId)
+        }
+
+        // Start processing
+        await updateStatus('Analyzing website layout and languages...')
 
         // Step 1: Extract Language Signals (The "100% Fix" for Dropdowns)
         console.log('Extracting language signals from homepage...')
@@ -138,6 +148,7 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                     url: targetUrl,
+                    status_message: 'Extracting language signals from homepage...',
                     formats: ['extract'],
                     extract: {
                         schema: {
@@ -171,6 +182,7 @@ serve(async (req) => {
 
                     // Step 1.5: Targeted German Content Scrape (The "Bulletproof" Part)
                     if (ext.hasLanguageSwitcher || ext.germanVersionUrl || ext.germanSelector) {
+                        await updateStatus('Found German version entry point. Scraping localized content...')
                         console.log('Detected German version entry point. Performing targeted scrape...')
                         try {
                             const germanScrapeUrl = ext.germanVersionUrl || targetUrl
@@ -218,6 +230,7 @@ serve(async (req) => {
         let screenshotUrl = null
 
         if (targetUrl) {
+            await updateStatus('Crawling website pages for analysis...')
             console.log('Crawling website:', targetUrl)
 
             try {
@@ -250,6 +263,7 @@ serve(async (req) => {
                         let attempts = 0
                         const maxAttempts = 30 // 60 seconds max
                         while (attempts < maxAttempts) {
+                            if (attempts % 5 === 0) await updateStatus(`Crawling in progress... (${attempts * 2}s elapsed)`)
                             await new Promise(resolve => setTimeout(resolve, 2000))
 
                             const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${crawlJobId}`, {
@@ -284,7 +298,8 @@ serve(async (req) => {
         }
 
         // Execute the Deep Audit Agent Workflow
-        const auditReport = await executeAuditWorkflow(targetUrl, scrapedContent, openaiApiKey)
+        await updateStatus('Launching AI Auditor Agents...')
+        const auditReport = await executeAuditWorkflow(targetUrl, scrapedContent, openaiApiKey, updateStatus)
 
         // Update Job with result
         const { error: updateError } = await supabaseClient
@@ -292,6 +307,7 @@ serve(async (req) => {
             .update({
                 status: 'completed',
                 report: auditReport,
+                status_message: 'Audit completed!',
                 completed_at: new Date().toISOString()
             })
             .eq('id', jobId)
@@ -329,7 +345,8 @@ serve(async (req) => {
 async function executeAuditWorkflow(
     url: string,
     scrapedContent: string,
-    apiKey: string
+    apiKey: string,
+    updateStatus: (msg: string) => Promise<void>
 ): Promise<JobReport> {
 
     // Increase context to 60,000 characters (approx 12k-15k tokens)
@@ -404,7 +421,8 @@ async function executeAuditWorkflow(
     - Recommendation: How to fix it
     - Severity: high/medium/low`
 
-    console.log('Starting granular parallel analysis (5 Agents)...')
+    await updateStatus('Deploying parallel specialized agents (Legal, Privacy, UX, Localization, Researchers)...')
+    console.log('Starting granular parallel analysis (6 Agents)...')
 
     const [res1, res2, res3, res4, res5, res6] = await Promise.all([
         callOpenAI(apiKey, agent1Instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5),
@@ -416,6 +434,7 @@ async function executeAuditWorkflow(
     ])
 
     console.log('Granular analysis complete. Compiling final report...')
+    await updateStatus('Analysis complete. Consolidating agent findings into final report...')
 
     const compilerMessages = [
         { role: 'user', content: baseContext },

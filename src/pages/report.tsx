@@ -252,17 +252,20 @@ export function ReportPage() {
               <CardDescription>{job.url}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              <div className="space-y-2">
-                <Progress value={(loadingStep + 1) * (100 / loadingSteps.length)} className="h-2 bg-emerald-100" />
+              <div className="space-y-4">
+                <div className="relative">
+                  <Progress value={job.status_message ? undefined : (loadingStep + 1) * (100 / loadingSteps.length)} className="h-2 bg-emerald-100" />
+                  {job.status_message && <div className="absolute inset-0 bg-emerald-500/20 animate-pulse rounded-full h-2"></div>}
+                </div>
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={loadingStep}
+                    key={job.status_message || loadingStep}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="text-center text-sm font-medium text-emerald-700 dark:text-emerald-400"
+                    className="text-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 min-h-[1.5rem]"
                   >
-                    {loadingSteps[loadingStep]}
+                    {job.status_message || loadingSteps[loadingStep]}
                   </motion.p>
                 </AnimatePresence>
               </div>

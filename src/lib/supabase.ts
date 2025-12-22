@@ -89,6 +89,7 @@ export type Database = {
           status: 'pending' | 'processing' | 'completed' | 'failed'
           report: JobReport | null
           screenshot_url: string | null
+          status_message: string | null
           created_at: string
           completed_at: string | null
           is_public: boolean
@@ -101,6 +102,7 @@ export type Database = {
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           report?: JobReport | null
           screenshot_url?: string | null
+          status_message?: string | null
           created_at?: string
           completed_at?: string | null
           is_public?: boolean
@@ -113,6 +115,7 @@ export type Database = {
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           report?: JobReport | null
           screenshot_url?: string | null
+          status_message?: string | null
           created_at?: string
           completed_at?: string | null
           is_public?: boolean

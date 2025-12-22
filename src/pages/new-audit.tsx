@@ -19,7 +19,6 @@ const formSchema = z.object({
 export function NewAuditPage() {
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState('')
   const [workflowType, setWorkflowType] = useState<'keyword' | 'url'>('keyword')
   const [processingJobId, setProcessingJobId] = useState<string | null>(null)
   const [isSearchProcessing, setIsSearchProcessing] = useState(false)

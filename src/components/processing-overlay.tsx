@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type Database } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Loader2, Sparkles, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -14,7 +13,6 @@ interface ProcessingOverlayProps {
     jobId?: string
     onClose: () => void
     type?: 'audit' | 'search'
-    manualTitle?: string
     manualSubtitle?: string
     isManualComplete?: boolean
     onManualComplete?: () => void
@@ -24,7 +22,6 @@ export function ProcessingOverlay({
     jobId,
     onClose,
     type = 'audit',
-    manualTitle,
     manualSubtitle,
     isManualComplete,
     onManualComplete
@@ -32,7 +29,6 @@ export function ProcessingOverlay({
     const navigate = useNavigate()
     const [job, setJob] = useState<Job | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [elapsedSeconds, setElapsedSeconds] = useState(0)
     const [progressValue, setProgressValue] = useState(0)
     const [simulatedStep, setSimulatedStep] = useState(0)
 
@@ -58,13 +54,12 @@ export function ProcessingOverlay({
     useEffect(() => {
         if (!jobId) return
 
-        // If it's a deep audit, monitor the jobs table + broadcast
         if (type === 'audit') {
             const fetchJob = async (silent = false) => {
-                const { data, error } = await supabase.from('jobs').select('*').eq('id', jobId).single()
-                if (error) {
+                const { data, error: jobError } = await supabase.from('jobs').select('*').eq('id', jobId).single()
+                if (jobError) {
                     if (!silent) {
-                        console.error('Error fetching job:', error)
+                        console.error('Error fetching job:', jobError)
                         setError('Could not find this analysis job.')
                     }
                     return
@@ -107,13 +102,10 @@ export function ProcessingOverlay({
             }
         }
 
-        // If it's a search, listen to the search-status channel
         if (type === 'search') {
             const channel = supabase
                 .channel(`search-status-${jobId}`)
                 .on('broadcast', { event: 'status_update' }, ({ payload }) => {
-                    console.log('[Realtime Search Update]', payload)
-                    // Mocking a job-like structure for the UI to read
                     setJob(prev => ({
                         ...prev,
                         status_message: payload.message,
@@ -128,19 +120,9 @@ export function ProcessingOverlay({
         }
     }, [jobId, navigate, type])
 
-    // 2. Timer & Progress Logic
+    // 2. Progress Simulation Logic
     useEffect(() => {
-        const timer = setInterval(() => {
-            setElapsedSeconds(prev => {
-                const next = prev + 1
-                if (next > 180 && !error && type === 'audit') {
-                    setError('Analysis is taking longer than usual. Please check your dashboard in a few minutes.')
-                }
-                return next
-            })
-        }, 1000)
-
-        const targetTime = type === 'audit' ? 120 : 15 // Faster for search
+        const targetTime = type === 'audit' ? 120 : 15
         const progressTimer = setInterval(() => {
             setProgressValue(prev => {
                 if (prev >= 95) return 95
@@ -149,11 +131,8 @@ export function ProcessingOverlay({
             })
         }, 1000)
 
-        return () => {
-            clearInterval(timer)
-            clearInterval(progressTimer)
-        }
-    }, [error, type])
+        return () => clearInterval(progressTimer)
+    }, [type])
 
     // 3. Step Rotation
     useEffect(() => {
@@ -169,13 +148,18 @@ export function ProcessingOverlay({
     useEffect(() => {
         if (type === 'search' && isManualComplete) {
             setProgressValue(100)
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 if (onManualComplete) onManualComplete()
             }, 800)
+            return () => clearTimeout(timer)
         }
     }, [isManualComplete, type, onManualComplete])
 
     const isCompleted = type === 'audit' ? job?.status === 'completed' : isManualComplete
+
+    if (error) {
+        toast.error(error)
+    }
 
     return (
         <motion.div

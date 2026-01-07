@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, TrendingUp, Users, ExternalLink, Filter, Download, MoreHorizontal } from 'lucide-react'
+import { Plus, TrendingUp, Users, Filter, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase, getLeadResults, getKeywordSearchResults, getRecentPeopleSearches } from '@/lib/supabase'
@@ -24,21 +24,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 
-const ScoreBadge = ({ score }: { score: number | null, label: string | null }) => {
-  if (score === null) return <span className="text-muted-foreground">-</span>
-
-  let colorClass = "text-gray-600 bg-gray-100"
-  if (score >= 80) colorClass = "text-green-700 bg-green-50 border-green-200"
-  else if (score >= 50) colorClass = "text-yellow-700 bg-yellow-50 border-yellow-200"
-  else colorClass = "text-red-700 bg-red-50 border-red-200"
-
-
-  return (
-    <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
-      <span className="font-semibold text-xs">{score}</span>
-    </div>
-  )
-}
 
 const StatusBadge = ({ status }: { status: string }) => {
   let colorClass = "text-gray-600 bg-gray-100 border-gray-200"
@@ -74,7 +59,7 @@ export function DashboardPage() {
   })
 
   // Fetch AI Leads
-  const { data: leadResults, isLoading: isLoadingLeads } = useQuery({
+  const { data: leadResults } = useQuery({
     queryKey: ['leadResults', user?.id],
     queryFn: async () => {
       if (!user?.id) return []

@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, linkAnalysis, deleteJobs, deleteKeywordResults } from '@/lib/supabase'
@@ -39,7 +39,7 @@ function JobsPageContent() {
   const { user } = useAuth()
   const { addTask } = useBackgroundTasks()
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
+
   const [activeTab, setActiveTab] = useState<'audits' | 'searches'>('audits')
   const [detailsOpen, setDetailsOpen] = useState(false)
 

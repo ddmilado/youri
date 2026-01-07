@@ -21,7 +21,7 @@ const formSchema = z.object({
 export function NewAuditPage() {
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [workflowType, setWorkflowType] = useState<'keyword' | 'url'>('keyword')
+  const [workflowType, setWorkflowType] = useState<'keyword' | 'url' | 'translation'>('keyword')
   const [processingJobId, setProcessingJobId] = useState<string | null>(null)
   const [isSearchProcessing, setIsSearchProcessing] = useState(false)
   const [isSearchComplete, setIsSearchComplete] = useState(false)

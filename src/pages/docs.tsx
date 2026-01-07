@@ -16,8 +16,7 @@ import {
     Moon,
     Mail,
     Linkedin,
-    Lightbulb,
-    Home
+    Lightbulb
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 

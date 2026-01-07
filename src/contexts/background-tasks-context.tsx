@@ -139,7 +139,7 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
 
         const pollTimer = setInterval(async () => {
             for (const task of activeAudits) {
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('jobs')
                     .select('status, status_message')
                     .eq('id', task.id)

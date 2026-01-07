@@ -29,17 +29,21 @@ export function NewAuditPage() {
 
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { addTask, updateTask } = useBackgroundTasks()
+  const { addTask, updateTask, tasks } = useBackgroundTasks()
 
   const handleMinimizeAudit = (jobId: string, url: string) => {
-    addTask({
-      id: jobId,
-      type: 'audit',
-      status: 'processing',
-      title: 'Deep Audit',
-      subtitle: url,
-      progress: 0,
-    })
+    // Only add if not already in the tray
+    if (!tasks.some(t => t.id === jobId)) {
+      addTask({
+        id: jobId,
+        type: 'audit',
+        status: 'processing',
+        title: 'Deep Audit',
+        subtitle: url,
+        progress: 0,
+        statusMessage: 'Analyzing in background...'
+      })
+    }
     setProcessingJobId(null)
     toast.info('Audit running in background')
   }
@@ -48,15 +52,17 @@ export function NewAuditPage() {
     const status = isSearchComplete ? 'completed' : 'processing'
     const statusMessage = isSearchComplete ? (searchCompletionData?.message || 'Search complete!') : undefined
 
-    addTask({
-      id: searchId,
-      type: 'search',
-      status: status,
-      title: 'Keyword Search',
-      subtitle: query,
-      progress: isSearchComplete ? 100 : 0,
-      statusMessage: statusMessage
-    })
+    if (!tasks.some(t => t.id === searchId)) {
+      addTask({
+        id: searchId,
+        type: 'search',
+        status: status,
+        title: 'Keyword Search',
+        subtitle: query,
+        progress: isSearchComplete ? 100 : 0,
+        statusMessage: statusMessage
+      })
+    }
     setIsSearchProcessing(false)
     toast.info(isSearchComplete ? 'Search completed' : 'Search running in background')
   }
@@ -173,6 +179,16 @@ export function NewAuditPage() {
 
           if (newJob) {
             setProcessingJobId(newJob.id)
+            // Also add to background tasks so it shows in the tray if minimized
+            addTask({
+              id: newJob.id,
+              type: 'audit',
+              status: 'processing',
+              title: newJob.title,
+              subtitle: newJob.url,
+              progress: 0,
+              statusMessage: 'Initializing audit...'
+            })
             try {
               const result = await runAIWorkflow(url, user.id, newJob.id)
               if (result && result.success === false) {

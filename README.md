@@ -9,7 +9,8 @@
 - **AI-Powered Deep Audits**: Automatically analyzes websites for GDPR/DSGVO compliance, Impressum accuracy, consumer rights, and localization quality.
 - **Dynamic Scoring**: Real-time audit scoring (0-100) based on the severity of the findings found by specialized AI agents.
 - **Shareable Reports**: Generate public, anonymous URLs for audits to share findings with clients or team members without requiring an account.
-- **Premium Dashboard**: A sleek, glassmorphic interface to manage audits, keyword searches, and AI leads.
+- **Premium Dashboard**: A sleek, glassmorphic interface to manage audits and keyword searches.
+- **Background Operations**: Real-time status updates and background processing for all major tasks.
 - **PDF Export**: Professional PDF report generation for offline distribution.
 - **Enterprise Hardened**: Built with strict TypeScript, automated cleaning of AI outputs, and robust error handling.
 

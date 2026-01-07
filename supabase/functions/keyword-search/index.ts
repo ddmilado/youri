@@ -14,6 +14,8 @@ interface WorkflowInput {
     input_as_text: string
     user_id: string
     search_id?: string
+    creator_name?: string
+    creator_email?: string
 }
 
 interface SearchResult {
@@ -33,7 +35,7 @@ serve(async (req) => {
         const body = await req.text()
         console.log('Request body:', body)
 
-        const { input_as_text, user_id, search_id } = JSON.parse(body) as WorkflowInput
+        const { input_as_text, user_id, search_id, creator_name, creator_email } = JSON.parse(body) as WorkflowInput
 
         if (!input_as_text) {
             throw new Error('input_as_text is required')
@@ -97,7 +99,9 @@ serve(async (req) => {
             website: result.url,
             company_description: result.company_description,
             analyzed: false,
-            analysis_id: null
+            analysis_id: null,
+            creator_name: creator_name || null,
+            creator_email: creator_email || null
         }))
 
         if (resultsToInsert.length > 0) {
@@ -115,11 +119,13 @@ serve(async (req) => {
 
         // Send completion signal
         if (statusChannel) {
+            console.log('Sending completion broadcast for search:', search_id)
             await statusChannel.send({
                 type: 'broadcast',
                 event: 'status_update',
-                payload: { message: 'Search complete!', status: 'completed' }
+                payload: { message: 'Search complete!', status: 'completed', count: resultsToInsert.length }
             }, { httpSend: true })
+            console.log('Completion broadcast sent')
         }
 
         return new Response(
@@ -237,7 +243,7 @@ Output Format:
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini', // Cheap and fast for formatting
+            model: 'gpt-5-mini-2025-08-07',
             messages: [
                 { role: 'system', content: systemPrompt },
                 {
@@ -245,7 +251,6 @@ Output Format:
                     content: `Here are the raw search results:\n${JSON.stringify(rawResults, null, 2)}`
                 }
             ],
-            temperature: 0.3, // Low temp for extraction accuracy
             response_format: { type: 'json_object' }
         })
     })

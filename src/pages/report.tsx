@@ -256,8 +256,8 @@ export function ReportPage() {
             </Link>
           )}
           {!user && (
-            <Link to="/">
-              <div className="flex items-center gap-2 mr-4">
+            <Link to="/dashboard">
+              <div className="flex items-center gap-2 mr-4 hover:opacity-80 transition-opacity">
                 <img src="/logo.svg" alt="Logo" className="h-6 w-6" />
                 <span className="font-bold text-sm hidden sm:inline">YourIntAI</span>
               </div>
@@ -385,8 +385,23 @@ export function ReportPage() {
                           <AccordionContent className="pt-0 pb-4 pl-4 md:pl-8">
                             <div className="space-y-3 text-sm text-muted-foreground">
                               <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md border border-slate-100 dark:border-slate-800">
-                                <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">Analysis & Source:</p>
+                                <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">Analysis:</p>
                                 <p>{finding.explanation}</p>
+                                {finding.verificationNote && (
+                                  <p className="mt-2 text-xs italic text-slate-500 dark:text-slate-400">
+                                    📋 {finding.verificationNote}
+                                  </p>
+                                )}
+                                {finding.sourceUrl && (
+                                  <a
+                                    href={finding.sourceUrl.startsWith('http') ? finding.sourceUrl : `${job?.url}${finding.sourceUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                  >
+                                    🔗 View source: {finding.sourceUrl}
+                                  </a>
+                                )}
                               </div>
                               <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-md border border-emerald-100 dark:border-emerald-900/50">
                                 <CheckSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />

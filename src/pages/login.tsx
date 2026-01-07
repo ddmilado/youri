@@ -61,9 +61,9 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex justify-center mb-4">
+          <Link to="/dashboard" className="flex justify-center mb-4 hover:opacity-80 transition-opacity">
             <img src="/logo.svg" alt="YourIntAI Logo" className="h-16 w-16 object-contain p-2 bg-white" />
-          </div>
+          </Link>
           <CardTitle className="text-3xl font-bold text-center">Welcome back</CardTitle>
           <CardDescription className="text-center">Sign in to your YourInt AI account</CardDescription>
         </CardHeader>

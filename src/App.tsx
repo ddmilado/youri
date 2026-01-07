@@ -2,9 +2,11 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/contexts/auth-context'
+import { BackgroundTasksProvider } from '@/contexts/background-tasks-context'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ProtectedRoute } from '@/components/protected-route'
 import { Layout } from '@/components/layout'
+import { FloatingTaskIndicator } from '@/components/floating-task-indicator'
 import { LoginPage } from '@/pages/login'
 import { SignupPage } from '@/pages/signup'
 import { Toaster } from 'sonner'
@@ -83,97 +85,100 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system">
         <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/debug" element={<Suspense fallback={<LoadingFallback />}><Debug /></Suspense>} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Dashboard />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/new"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <NewAudit />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/report/:id"
-                element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <ReportPageWrapper />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/jobs"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Jobs />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/find-people"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <FindPeople />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Settings />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/docs"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Docs />
-                      </Suspense>
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-            <Analytics />
-          </BrowserRouter>
-          <Toaster position="top-right" richColors />
+          <BackgroundTasksProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/debug" element={<Suspense fallback={<LoadingFallback />}><Debug /></Suspense>} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <Dashboard />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/new"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <NewAudit />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/report/:id"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <ReportPageWrapper />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/jobs"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <Jobs />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/find-people"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <FindPeople />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <Settings />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/docs"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <Docs />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+              <FloatingTaskIndicator />
+              <Analytics />
+            </BrowserRouter>
+            <Toaster position="top-right" richColors />
+          </BackgroundTasksProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

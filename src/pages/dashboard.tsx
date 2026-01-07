@@ -178,91 +178,11 @@ export function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <TabsList>
               <TabsTrigger value="audits">Recent Audits</TabsTrigger>
-              <TabsTrigger value="leads">AI Leads</TabsTrigger>
               <TabsTrigger value="searches">Searches</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="leads" className="m-0">
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
-                <Table className="w-full">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[300px]">Company</TableHead>
-                      <TableHead>Industry</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Contacts</TableHead>
-                      <TableHead>Verification</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoadingLeads ? (
-                      [...Array(5)].map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                        </TableRow>
-                      ))
-                    ) : leadResults && leadResults.length > 0 ? (
-                      leadResults.map((lead) => (
-                        <TableRow key={lead.id}>
-                          <TableCell>
-                            <div className="font-medium">{lead.company}</div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              <a href={lead.website} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
-                                {lead.website.replace('https://', '').replace('http://', '').split('/')[0]}
-                                <ExternalLink className="h-2 w-2" />
-                              </a>
-                            </div>
-                          </TableCell>
-                          <TableCell>{lead.industry || '-'}</TableCell>
-                          <TableCell>
-                            <ScoreBadge score={lead.lead_quality_score} label={lead.lead_quality_label} />
-                          </TableCell>
-                          <TableCell>
-                            {lead.contacts && lead.contacts.length > 0 ? (
-                              <div className="flex items-center gap-1 text-sm">
-                                <Users className="h-3 w-3 text-muted-foreground" />
-                                {lead.contacts.length}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {lead.localization_evidence?.german_content_on_main_domain ? (
-                              <Badge variant="secondary" className="text-xs font-normal">
-                                🇩🇪 Verified
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">Unverified</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          No leads found. Start a new analysis.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
 
           <TabsContent value="audits" className="m-0">
             <Card className="overflow-hidden">
@@ -273,6 +193,7 @@ export function DashboardPage() {
                       <TableHead>Audit Title</TableHead>
                       <TableHead>URL</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Creator</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -296,8 +217,15 @@ export function DashboardPage() {
                           <TableCell>
                             <StatusBadge status={job.status} />
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                          <TableCell>
+                            {job.user_id === user?.id ? (
+                              <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">Team Member</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true }).replace('about ', '')}
                           </TableCell>
                           <TableCell className="text-right">
                             <Link to={job.status === 'completed' ? `/report/${job.id}` : '#'}>
@@ -341,8 +269,16 @@ export function DashboardPage() {
                           <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
                             <div className="font-medium truncate" title={search.search_query}>{search.search_query}</div>
                             <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
-                              <span className="truncate max-w-[150px]">{search.company_name}</span>
-                              <span className="whitespace-nowrap opacity-70">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="truncate max-w-[120px]">{search.company_name}</span>
+                                <span className="text-[10px] opacity-50">•</span>
+                                {search.user_id === user?.id ? (
+                                  <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1 rounded">You</span>
+                                ) : (
+                                  <span className="text-[10px] opacity-70">Team Member</span>
+                                )}
+                              </div>
+                              <span className="whitespace-nowrap opacity-70 text-[10px]">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true }).replace('about ', '')}</span>
                             </div>
                           </div>
                         ))}
@@ -375,7 +311,7 @@ export function DashboardPage() {
                             <div className="font-medium truncate" title={search.query}>{search.query}</div>
                             <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
                               <span className="whitespace-nowrap">{search.results?.length || 0} matches</span>
-                              <span className="whitespace-nowrap opacity-70">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true })}</span>
+                              <span className="whitespace-nowrap opacity-70">{formatDistanceToNow(new Date(search.created_at), { addSuffix: true }).replace('about ', '')}</span>
                             </div>
                           </div>
                         ))}

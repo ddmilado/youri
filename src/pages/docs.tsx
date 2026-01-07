@@ -16,22 +16,24 @@ import {
     Moon,
     Mail,
     Linkedin,
-    Lightbulb
+    Lightbulb,
+    Home
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export function DocsPage() {
     return (
         <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950">
             {/* Top Header with Logo */}
             <header className="px-6 py-8 md:px-10 border-b flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
-                <div className="flex items-center gap-4">
+                <Link to="/dashboard" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                     <img src="/logo.svg" alt="YourIntAI Logo" className="h-10 w-10" />
                     <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
                     <div>
                         <h1 className="text-xl font-bold tracking-tight">User Tutorial Guide</h1>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Business Operations Manual</p>
                     </div>
-                </div>
+                </Link>
                 <Badge variant="outline" className="text-[10px] font-mono">v1.2.0-FINAL</Badge>
             </header>
 
@@ -105,10 +107,16 @@ export function DocsPage() {
                             </CardHeader>
                             <CardContent className="space-y-4 text-sm text-slate-600 dark:text-slate-400">
                                 <p>
-                                    Sometimes, while an audit is still loading, it might not immediately appear in your main "Audit Results" tab.
+                                    YourIntAI features a real-time **Processing Overlay**. When an audit starts, you can monitor the progress live.
                                 </p>
                                 <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border space-y-2">
-                                    <p className="font-bold text-xs underline">The Fix:</p>
+                                    <p className="font-bold text-xs underline">Productivity Tip: Background Tasks</p>
+                                    <p className="text-xs">
+                                        You don't have to wait! Click **"Minimize"** on any active audit or keyword search. The task will move to the **Floating Task Tray** in the bottom-right corner, allowing you to continue working while we scan.
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border space-y-2">
+                                    <p className="font-bold text-xs underline">Navigation Tip: Finding "Loading" Audits</p>
                                     <ol className="list-decimal pl-4 space-y-2 text-xs">
                                         <li>Go to the **Dashboard**.</li>
                                         <li>Locate the **"Recent Audits"** tab in the center of the screen.</li>
@@ -199,13 +207,12 @@ export function DocsPage() {
 
                     <div className="space-y-4">
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            The **"Audit Results"** page is your archive. It is split into three key tabs for easy management:
+                            The **"Audit Results"** page is your archive. It is split into two key tabs for easy management:
                         </p>
-                        <div className="grid sm:grid-cols-3 gap-3">
+                        <div className="grid sm:grid-cols-2 gap-3">
                             {[
                                 { label: "Site Audits", desc: "Full website compliance and UX reports." },
                                 { label: "Keyword Searches", desc: "History of your previous market queries." },
-                                { label: "AI Analysis", desc: "Results from 'Find People' and lead extraction." }
                             ].map((tab, i) => (
                                 <div key={i} className="p-4 border rounded-xl bg-slate-50 dark:bg-slate-900">
                                     <h5 className="font-bold text-xs mb-1">{tab.label}</h5>

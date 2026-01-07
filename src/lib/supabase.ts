@@ -19,6 +19,8 @@ export type AuditSection = {
     explanation: string
     recommendation: string
     severity: 'high' | 'medium' | 'low'
+    sourceUrl?: string
+    verificationNote?: string
   }>
 }
 
@@ -94,6 +96,8 @@ export type Database = {
           completed_at: string | null
           is_public: boolean
           score: number | null
+          creator_name?: string | null
+          creator_email?: string | null
         }
         Insert: {
           id?: string
@@ -108,6 +112,8 @@ export type Database = {
           completed_at?: string | null
           is_public?: boolean
           score?: number | null
+          creator_name?: string | null
+          creator_email?: string | null
         }
         Update: {
           id?: string
@@ -122,6 +128,8 @@ export type Database = {
           completed_at?: string | null
           is_public?: boolean
           score?: number | null
+          creator_name?: string | null
+          creator_email?: string | null
         }
       }
       ai_lead_results: {
@@ -230,6 +238,8 @@ export type Database = {
           analyzed: boolean
           analysis_id: string | null
           created_at: string
+          creator_name?: string | null
+          creator_email?: string | null
         }
         Insert: {
           id?: string
@@ -241,6 +251,8 @@ export type Database = {
           analyzed?: boolean
           analysis_id?: string | null
           created_at?: string
+          creator_name?: string | null
+          creator_email?: string | null
         }
         Update: {
           id?: string
@@ -252,6 +264,8 @@ export type Database = {
           analyzed?: boolean
           analysis_id?: string | null
           created_at?: string
+          creator_name?: string | null
+          creator_email?: string | null
         }
       }
       people_searches: {
@@ -314,19 +328,48 @@ export async function getLeadResultById(id: string) {
 
 /**
  * Call the Supabase Edge Function to run the OpenAI workflow
+ * Uses a short timeout since the function returns immediately and processes in background
  */
 export async function runAIWorkflow(inputText: string, userId: string, jobId?: string) {
-  const { data, error } = await supabase.functions.invoke('run-workflow', {
-    body: {
-      input_as_text: inputText,
-      user_id: userId,
-      job_id: jobId
+  // Create an AbortController with 10 second timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const { data, error } = await supabase.functions.invoke('run-workflow', {
+      body: {
+        input_as_text: inputText,
+        user_id: userId,
+        job_id: jobId
+      }
+    })
+
+    clearTimeout(timeoutId)
+    if (error) throw error
+    return data
+  } catch (err: any) {
+    clearTimeout(timeoutId)
+    // If aborted due to timeout, that's okay - job is likely processing
+    if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
+      console.log('Request timed out but job may be processing')
+      return { success: true, job_id: jobId, message: 'Request timed out but job may be processing' }
     }
+    throw err
+  }
+}
+
+/**
+ * Run Translation Analysis Workflow
+ */
+export async function runTranslationAnalysis(url: string, userId: string) {
+  const { data, error } = await supabase.functions.invoke('analyze-translation', {
+    body: { url, user_id: userId }
   })
 
   if (error) throw error
   return data
 }
+
 
 /**
  * Get all keyword search results for a specific user
@@ -373,18 +416,36 @@ export async function getKeywordResultById(id: string) {
 
 /**
  * Run keyword search workflow
+ * Returns immediately - results come via realtime broadcast
  */
-export async function runKeywordSearch(keywords: string, userId: string, searchId?: string) {
-  const { data, error } = await supabase.functions.invoke('keyword-search', {
-    body: {
-      input_as_text: keywords,
-      user_id: userId,
-      search_id: searchId
-    }
-  })
+export async function runKeywordSearch(keywords: string, userId: string, searchId?: string, creatorName?: string, creatorEmail?: string) {
+  // Create an AbortController with 10 second timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
 
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase.functions.invoke('keyword-search', {
+      body: {
+        input_as_text: keywords,
+        user_id: userId,
+        search_id: searchId,
+        creator_name: creatorName,
+        creator_email: creatorEmail
+      }
+    })
+
+    clearTimeout(timeoutId)
+    if (error) throw error
+    return data
+  } catch (err: any) {
+    clearTimeout(timeoutId)
+    // If aborted due to timeout, that's okay - search is likely processing
+    if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
+      console.log('Request timed out but search may be processing')
+      return { success: true, id: searchId, message: 'Search started in background' }
+    }
+    throw err
+  }
 }
 
 /**
@@ -432,3 +493,50 @@ export async function getRecentPeopleSearches(userId: string) {
   return data
 }
 
+/**
+ * Delete jobs by IDs
+ */
+export async function deleteJobs(jobIds: string[]) {
+  const { error } = await supabase
+    .from('jobs')
+    .delete()
+    .in('id', jobIds)
+
+  if (error) throw error
+}
+
+/**
+ * Delete keyword search results by IDs
+ */
+export async function deleteKeywordResults(resultIds: string[]) {
+  const { error } = await supabase
+    .from('keyword_search_results')
+    .delete()
+    .in('id', resultIds)
+
+  if (error) throw error
+}
+
+/**
+ * Delete people searches by IDs
+ */
+export async function deletePeopleSearches(searchIds: string[]) {
+  const { error } = await supabase
+    .from('people_searches')
+    .delete()
+    .in('id', searchIds)
+
+  if (error) throw error
+}
+
+/**
+ * Delete AI lead results by IDs
+ */
+export async function deleteLeadResults(leadIds: string[]) {
+  const { error } = await supabase
+    .from('ai_lead_results')
+    .delete()
+    .in('id', leadIds)
+
+  if (error) throw error
+}

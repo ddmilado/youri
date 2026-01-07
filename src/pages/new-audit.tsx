@@ -21,7 +21,7 @@ const formSchema = z.object({
 export function NewAuditPage() {
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [workflowType, setWorkflowType] = useState<'keyword' | 'url' | 'translation'>('keyword')
+  const [workflowType, setWorkflowType] = useState<'keyword' | 'url' | 'translation'>('url')
   const [processingJobId, setProcessingJobId] = useState<string | null>(null)
   const [isSearchProcessing, setIsSearchProcessing] = useState(false)
   const [isSearchComplete, setIsSearchComplete] = useState(false)
@@ -259,17 +259,6 @@ export function NewAuditPage() {
           <div className="flex gap-1 md:gap-2 mb-6 p-1 bg-muted rounded-lg">
             <button
               type="button"
-              onClick={() => setWorkflowType('keyword')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'keyword'
-                ? 'bg-white dark:bg-gray-800 shadow-sm'
-                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
-                }`}
-            >
-              <Search className="h-4 w-4" />
-              <span className="font-medium text-xs md:text-sm">Keyword</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setWorkflowType('url')}
               className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'url'
                 ? 'bg-white dark:bg-gray-800 shadow-sm'
@@ -278,6 +267,17 @@ export function NewAuditPage() {
             >
               <LinkIcon className="h-4 w-4" />
               <span className="font-medium text-xs md:text-sm">URL Analysis</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkflowType('keyword')}
+              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'keyword'
+                ? 'bg-white dark:bg-gray-800 shadow-sm'
+                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
+                }`}
+            >
+              <Search className="h-4 w-4" />
+              <span className="font-medium text-xs md:text-sm">Keyword</span>
             </button>
           </div>
 

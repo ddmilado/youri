@@ -88,12 +88,12 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
                         filter: `id=eq.${task.id}`
                     }, (payload) => {
                         const newJob = payload.new as any
-                        updateTask(task.id, {
-                            status: newJob.status,
-                            statusMessage: newJob.status_message ||
-                                (newJob.status === 'completed' ? 'Analysis Complete' :
-                                    newJob.status === 'failed' ? 'Analysis Failed' : task.statusMessage)
-                        })
+                        if (newJob.status === 'completed' || newJob.status === 'failed') {
+                            updateTask(task.id, {
+                                status: newJob.status,
+                                statusMessage: newJob.status === 'completed' ? 'Analysis Complete' : 'Analysis Failed'
+                            })
+                        }
                     })
                 } else if (task.type === 'search') {
                     // For search tasks, add a timeout to auto-complete them if no broadcast is received

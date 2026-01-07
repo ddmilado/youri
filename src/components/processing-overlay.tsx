@@ -300,8 +300,8 @@ export function ProcessingOverlay({
                                         exit={{ opacity: 0, scale: 1.05 }}
                                         className="min-h-[40px] flex items-center justify-center"
                                     >
-                                        <p className={cn("text-lg font-black bg-clip-text text-transparent leading-snug px-2 uppercase tracking-tight",
-                                            isFailed ? "bg-gradient-to-r from-red-600 to-red-400" : "bg-gradient-to-r from-emerald-600 to-emerald-400 dark:from-emerald-400 dark:to-emerald-200"
+                                        <p className={cn("text-lg font-bold bg-clip-text text-transparent leading-snug px-2",
+                                            isFailed ? "bg-gradient-to-r from-red-600 to-red-400" : "bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400"
                                         )}>
                                             {isFailed ? 'Analysis encountered an error.' : isCompleted ? 'Analysis Complete' : (job?.status_message || loadingSteps[simulatedStep])}
                                         </p>

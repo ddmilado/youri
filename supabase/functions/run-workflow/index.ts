@@ -689,26 +689,28 @@ async function executeAuditWorkflow(
         }
 
         // Batch 1: Run first 5 agents in parallel
-        await updateStatus('Agents 1-5: Legal, Consumer, Privacy, UX, Company...')
-        const results1 = await Promise.all([
-            callAgent(agent1Instruction, 'Legal'),
-            callAgent(agent2Instruction, 'Consumer Rights'),
-            callAgent(agent3Instruction, 'Privacy'),
-            callAgent(agent4Instruction, 'UX'),
-            callAgent(agent5Instruction, 'Company Info')
-        ])
+        await updateStatus('Initializing Audit Squad...')
+
+        const p1 = callAgent(agent1Instruction, 'Legal')
+        const p2 = callAgent(agent2Instruction, 'Consumer Rights')
+        const p3 = callAgent(agent3Instruction, 'Privacy')
+        const p4 = callAgent(agent4Instruction, 'UX')
+        const p5 = callAgent(agent5Instruction, 'Company Info')
+
+        await updateStatus('Squad 1 at work: Legal, Consumer, Privacy, UX, Company...')
+        const results1 = await Promise.all([p1, p2, p3, p4, p5])
         res1 = results1[0]; res2 = results1[1]; res3 = results1[2]; res4 = results1[3]; res5 = results1[4];
 
         // Batch 2: Run remaining 6 agents in parallel
-        await updateStatus('Agents 6-11: Localization, SEO, Trust, Checkout, Price, Translation QA...')
-        const results2 = await Promise.all([
-            callAgent(agent6Instruction, 'Localization'),
-            callAgent(agent7Instruction, 'SEO'),
-            callAgent(agent8Instruction, 'Trust'),
-            callAgent(agent9Instruction, 'Checkout'),
-            callAgent(agent10Instruction, 'Price Transparency'),
-            callAgent(agent11Instruction, 'Translation QA')
-        ])
+        const p6 = callAgent(agent6Instruction, 'Localization')
+        const p7 = callAgent(agent7Instruction, 'SEO')
+        const p8 = callAgent(agent8Instruction, 'Trust')
+        const p9 = callAgent(agent9Instruction, 'Checkout')
+        const p10 = callAgent(agent10Instruction, 'Price Transparency')
+        const p11 = callAgent(agent11Instruction, 'Translation QA')
+
+        await updateStatus('Squad 2 at work: Localization, SEO, Trust, Checkout, Price, QA...')
+        const results2 = await Promise.all([p6, p7, p8, p9, p10, p11])
         res6 = results2[0]; res7 = results2[1]; res8 = results2[2]; res9 = results2[3]; res10 = results2[4]; res11 = results2[5];
     }
 

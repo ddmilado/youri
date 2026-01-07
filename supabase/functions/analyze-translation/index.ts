@@ -57,16 +57,24 @@ serve(async (req) => {
         // --- STEP 2: Detect Language Structure ---
         console.log(`[Analysis] Detecting language structure...`)
 
-        // check for subdirectories in mapped URLs
-        const commonLangCodes = ['/en/', '/fr/', '/de/', '/es/', '/it/', '/nl/', '/pt/', '/ru/', '/zh/', '/ja/']
+        // check for subdirectories and subdomains in mapped URLs
+        const commonLangCodes = ['/en/', '/fr/', '/de/', '/es/', '/it/', '/nl/', '/pt/', '/ru/', '/zh/', '/ja/', '/de-de/', '/de-ch/', '/de-at/']
         const foundSubdirs = commonLangCodes.filter(code => urls.some(u => u.includes(code)))
+
+        // Detect subdomains like de.example.com
+        const hasGermanSubdomain = urls.some(u => {
+            try {
+                const hostname = new URL(u).hostname
+                return hostname.startsWith('de.') || hostname.includes('.de.')
+            } catch { return false }
+        })
 
         let languageStructure = 'unknown'
         let isClientSide = false
 
-        if (foundSubdirs.length > 0) {
+        if (foundSubdirs.length > 0 || hasGermanSubdomain) {
             languageStructure = 'subdirectories'
-            console.log(`[Analysis] Found language subdirectories: ${foundSubdirs.join(', ')}`)
+            console.log(`[Analysis] Found language signals: ${foundSubdirs.join(', ')}${hasGermanSubdomain ? ' (German Subdomain Detected)' : ''}`)
         } else {
             // Check for 404s on common language paths to confirm
             const testPaths = ['/fr', '/de', '/es']
@@ -97,7 +105,15 @@ serve(async (req) => {
         const sortedUrls = urls.sort((a, b) => a.length - b.length)
 
         // Filter unique and useful pages
-        const keyTerms = ['about', 'contact', 'pricing', 'product', 'service', 'feature', 'team', 'jobs', 'career']
+        // Filter unique and useful pages, prioritizing legal pages
+        const keyTerms = [
+            'impressum', 'legal-notice', 'disclosure',
+            'agb', 'terms', 'condition', 'tos',
+            'datenschutz', 'privacy', 'gdpr', 'dsgvo',
+            'widerruf', 'withdrawal', 'return', 'refund',
+            'shipping', 'versand',
+            'about', 'contact', 'pricing', 'product', 'service', 'feature', 'team', 'jobs', 'career'
+        ]
 
         const importantPages = new Set<string>()
         if (urls.length > 0) importantPages.add(sortedUrls[0]) // Home
@@ -105,13 +121,15 @@ serve(async (req) => {
         // Find matches for terms
         for (const term of keyTerms) {
             const match = sortedUrls.find(u => u.toLowerCase().includes(term))
-            if (match) importantPages.add(match)
-            if (importantPages.size >= 5) break
+            if (match && !importantPages.has(match)) {
+                importantPages.add(match)
+            }
+            if (importantPages.size >= 10) break
         }
 
-        // Fill up to 5 with shortest remaining
+        // Fill up to 10 with shortest remaining
         for (const u of sortedUrls) {
-            if (importantPages.size >= 5) break
+            if (importantPages.size >= 10) break
             importantPages.add(u)
         }
 

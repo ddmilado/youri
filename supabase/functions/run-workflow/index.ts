@@ -599,11 +599,11 @@ async function executeAuditWorkflow(
          - **Finding**: "No German Localization Detected".
          - **Recommendation**: "Create a dedicated German version of the site (e.g. /de/ subdirectory) to enter the market."
          - **Severity**: High (if targeting Germany) or Medium.
-       - **CASE C**: If "Detected Language Subdirectories" includes /de/:
+       - **CASE C**: If "Detected Language Signals" includes /de/, /de-de/, de. subdomain, etc:
          - Proceed to Quality Analysis.
 
     2. **Detection (Visual/Technical)**:
-       - Look for URL patterns: \`/de/\`, \`de.\` subdomain, or \`?lang=de\`.
+       - Look for URL patterns: \`/de/\`, \`/de-de/\`, \`de.\` subdomain, or \`?lang=de\`.
        - Look for Visual Elements: German flag icon, "DE" language switcher (header/footer).
        - Look for Technical Signals: \`<html lang="de">\`, \`hreflang="de"\`.
     
@@ -643,7 +643,7 @@ async function executeAuditWorkflow(
        - **Inconsistencies**: Mixing formal "Sie" and informal "Du".
        - **Cross-Check**: If you see both English (/en/) and German (/de/) versions of the same page in the context, compare them. Does the German version capture the nuance, or is it a flat translation?
     
-    For each issue, provide: Problem, Explanation, Recommendation, Severity, sourceUrl.`
+    For each issue, provide: Problem, Explanation, Recommendation, Severity, sourceUrl. Ensure you cross-reference any detected 'German signals' or subdomains with the linguistic quality of the content. If a dedicated German path (like /de/) exists but the quality is poor, flag it as 'POOR LOCALIZATION'.`
 
     // Variables to hold results
     let res1, res2, res3, res4, res5, res6, res7, res8, res9, res10, res11
@@ -804,7 +804,8 @@ async function executeAuditWorkflow(
     4. **TRANSLATION CHECK**: If any agent reports "Client-Side Translation", "Machine Translation", or "GTranslate", you MUST: 
        a) Include "Hire a professional native translator to review all content" as one of the top items in the 'actionList'.
        b) Ensure the finding title/problem explicitly says "MACHINE TRANSLATION DETECTED" in the "Localization Quality" section.
-    5. Do NOT include any text before or after the JSON`
+    5. **GERMAN SIGNALS**: If the provided context or agent analysis mentions "German signals", "subdomains like de.", or "subdirectories like /de-de/", you MUST explicitly mention their presence and quality in the "overview".
+    6. Do NOT include any text before or after the JSON`
 
     console.log('Calling compiler with', compilerMessages.length, 'messages')
     console.log('Total content size for compiler:', compilerMessages.reduce((acc, m) => acc + m.content.length, 0), 'chars')
@@ -1017,7 +1018,7 @@ async function executeContextGatheringAgent(
             },
             body: JSON.stringify({
                 url: targetUrl,
-                limit: 30,
+                limit: 50,
                 scrapeOptions: { formats: ['markdown', 'html'] }
             })
         })
@@ -1073,13 +1074,21 @@ async function executeContextGatheringAgent(
             }
 
             // Analyze Structure
-            const commonLangCodes = ['/en/', '/fr/', '/de/', '/es/', '/it/', '/nl/', '/pt/', '/ru/', '/zh/', '/ja/']
+            const commonLangCodes = ['/en/', '/fr/', '/de/', '/es/', '/it/', '/nl/', '/pt/', '/ru/', '/zh/', '/ja/', '/de-de/', '/de-ch/', '/de-at/']
             const foundSubdirs = commonLangCodes.filter(code => urls.some(u => u.includes(code)))
+
+            // Detect subdomains like de.example.com
+            const hasGermanSubdomain = urls.some(u => {
+                try {
+                    const hostname = new URL(u).hostname
+                    return hostname.startsWith('de.') || hostname.includes('.de.')
+                } catch { return false }
+            })
 
             let structureNote = `Total Mapped URLs: ${urls.length}\n`
 
-            if (foundSubdirs.length > 0) {
-                structureNote += `Detected Language Subdirectories: ${foundSubdirs.join(', ')}\n`
+            if (foundSubdirs.length > 0 || hasGermanSubdomain) {
+                structureNote += `Detected Language Signals: ${foundSubdirs.join(', ')}${hasGermanSubdomain ? ' (German Subdomain Detected)' : ''}\n`
                 structureNote += `Conclusion: Server-Side Translation (likely robust).`
             } else {
                 // Check for 404s to detect Client-Side (GTranslate)
@@ -1205,7 +1214,26 @@ function formatCrawlResults(data: any[]): any {
         return { pages: [], contact: {}, company: {} }
     }
 
-    const pages = data.map((item: any) => ({
+    // Sort pages to prioritize legal terms
+    const legalTerms = [
+        'impressum', 'legal-notice', 'disclosure',
+        'agb', 'terms', 'condition', 'tos',
+        'datenschutz', 'privacy', 'gdpr', 'dsgvo',
+        'widerruf', 'withdrawal', 'return', 'refund',
+        'shipping', 'versand'
+    ]
+
+    const prioritizedData = [...data].sort((a, b) => {
+        const urlA = (a.metadata?.sourceURL || '').toLowerCase()
+        const urlB = (b.metadata?.sourceURL || '').toLowerCase()
+        const isLegalA = legalTerms.some(term => urlA.includes(term))
+        const isLegalB = legalTerms.some(term => urlB.includes(term))
+        if (isLegalA && !isLegalB) return -1
+        if (!isLegalA && isLegalB) return 1
+        return 0
+    })
+
+    const pages = prioritizedData.map((item: any) => ({
         title: item.metadata?.title || 'Page',
         url: item.metadata?.sourceURL || '',
         markdown: (item.markdown || '').substring(0, 4000), // Limit size per page to stay within token limits

@@ -88,7 +88,8 @@ export function FloatingTaskIndicator() {
                                                         <p className="text-xs text-muted-foreground truncate">{task.subtitle}</p>
                                                     )}
                                                     {task.statusMessage && task.status === 'processing' && (
-                                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold uppercase tracking-wider animate-pulse flex items-center gap-1">
+                                                            <Loader2 className="h-2 w-2 animate-spin" />
                                                             {task.statusMessage}
                                                         </p>
                                                     )}

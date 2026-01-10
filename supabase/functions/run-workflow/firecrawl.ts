@@ -18,7 +18,7 @@ export async function executeContextGatheringAgent(
             },
             body: JSON.stringify({
                 url: targetUrl,
-                limit: 20,
+                limit: 10, // Reduce page limit to ensure faster completion
                 scrapeOptions: { formats: ['markdown', 'html'] }
             })
         })
@@ -31,7 +31,9 @@ export async function executeContextGatheringAgent(
         const jobId = startData.id
         if (!jobId) throw new Error('No Job ID received from Firecrawl')
 
-        const maxTime = 60000
+        // TIMEOUT SAFETY: Aggressively reduced to 15s.
+        // We need maximum time for the 11-agent parallel swarm.
+        const maxTime = 15000
         const startTime = Date.now()
         let partialData: any[] = []
         while (Date.now() - startTime < maxTime) {
@@ -123,14 +125,53 @@ export async function executeContextGatheringAgent(
 
     let crawlData: any[] = []
     let structureData = ""
+    let mappedUrls: string[] = []
 
     try {
-        const [cData, sData] = await Promise.all([crawlPromise, structurePromise])
+        const [cData, sNote] = await Promise.all([crawlPromise, structurePromise])
         crawlData = cData
-        structureData = sData
+        structureData = sNote
+        // Extract links from structureData context if possible, or just use the note
     } catch (e) {
         console.error('Error in context gathering:', e)
         await updateStatus('Partial context gathering failure. Proceeding...')
+    }
+
+    // NEW: Targeted Scrape for missing legal pages
+    try {
+        const discoveredLegalUrls = (structureData.match(/https?:\/\/[^\s\n]+/g) || [])
+            .filter(u => {
+                const url = u.toLowerCase()
+                const legalTerms = [
+                    'impressum', 'legal-notice', 'disclosure', 'agb', 'terms', 'privacy',
+                    'datenschutz', 'widerruf', 'shipping', 'colofon', 'privacybeleid'
+                ]
+                return legalTerms.some(term => url.includes(term))
+            })
+
+        const capturedUrls = new Set(crawlData.map(p => (p.metadata?.sourceURL || '').toLowerCase()))
+        const missingLegals = [...new Set(discoveredLegalUrls)].filter(u => !capturedUrls.has(u.toLowerCase())).slice(0, 3)
+
+        if (missingLegals.length > 0) {
+            await updateStatus(`Found ${missingLegals.length} deep legal pages. Scraping...`)
+
+            // Execute scrapes in parallel
+            await Promise.all(missingLegals.map(async (url) => {
+                try {
+                    const res = await fetch('https://api.firecrawl.dev/v2/scrape', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url, formats: ['markdown'] })
+                    })
+                    if (res.ok) {
+                        const data = await res.json()
+                        if (data.data) crawlData.push(data.data)
+                    }
+                } catch (e) { console.error(`Failed to scrape missing legal: ${url}`, e) }
+            }))
+        }
+    } catch (err) {
+        console.warn('Targeted legal scrape failed:', err)
     }
 
     // Analyze HTML for translation widgets
@@ -194,7 +235,9 @@ export function formatCrawlResults(data: any[]): any {
     const legalTerms = [
         'impressum', 'legal-notice', 'disclosure', 'agb', 'terms', 'condition', 'tos',
         'datenschutz', 'privacy', 'gdpr', 'dsgvo', 'widerruf', 'withdrawal', 'return', 'refund',
-        'shipping', 'versand'
+        'shipping', 'versand', 'imprint', 'legal-notice', 'legal-info', 'company-information',
+        'terms-and-conditions', 'terms-of-service', 'privacy-policy', 'data-protection',
+        'colofon', 'algemene-voorwaarden', 'privacybeleid', 'privacyverklaring', 'leveringsvoorwaarden'
     ]
 
     const prioritizedData = [...data].sort((a, b) => {
@@ -207,11 +250,16 @@ export function formatCrawlResults(data: any[]): any {
         return 0
     })
 
-    const pages = prioritizedData.map((item: any) => ({
-        title: item.metadata?.title || 'Page',
-        url: item.metadata?.sourceURL || '',
-        markdown: (item.markdown || '').substring(0, 4000),
-    }))
+    const pages = prioritizedData.map((item: any) => {
+        const url = (item.metadata?.sourceURL || '').toLowerCase()
+        const isLegal = legalTerms.some(term => url.includes(term))
+        return {
+            title: item.metadata?.title || 'Page',
+            url: item.metadata?.sourceURL || '',
+            markdown: (item.markdown || '').substring(0, 4000),
+            pageType: isLegal ? 'legal' : 'general'
+        }
+    })
 
     let email = ''
     let phone = ''

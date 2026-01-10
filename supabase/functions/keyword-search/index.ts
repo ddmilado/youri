@@ -162,8 +162,8 @@ async function performFirecrawlSearch(query: string, apiKey: string): Promise<an
     console.log(`Calling Firecrawl Search API for: "${query}"`)
 
     // Construct search query - optimizing for company discovery
-    // If the query is just a niche, add "companies" or "startups" to it? 
-    // Actually, trust the user's query but ensure it's broad enough.
+    // Force company homepages and exclude noise (lists, blogs, directories)
+    const smartQuery = `${query} "official website" -inurl:blog -site:clutch.co -site:yelp.com -site:linkedin.com -"top 10" -list`
 
     try {
         const response = await fetch('https://api.firecrawl.dev/v1/search', {
@@ -173,8 +173,8 @@ async function performFirecrawlSearch(query: string, apiKey: string): Promise<an
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                query: query,
-                limit: 10,
+                query: smartQuery,
+                limit: 15, // Increase limit to throw away noise
                 scrapeOptions: {
                     formats: ['markdown']
                 }

@@ -31,6 +31,10 @@ export interface CompanyInfo {
     revenue?: string
     email?: string
     phone?: string
+    vat_id?: string
+    registration_number?: string
+    managing_directors?: string[]
+    legal_form?: string
     contacts: Contact[]
 }
 
@@ -46,11 +50,22 @@ export interface JobReport {
 
 // Agent Instructions
 const AGENT_INSTRUCTIONS = {
-    legal: `You are a German Legal Specialist. Focus on Impressum and AGB. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung and Shipping. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO). For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    legal: `You are a German & EU Legal Specialist. Focus on Impressum (Imprint), AGB (Terms), and GDPR. 
+    IMPORTANT: If legal documents exist in any language (German, English, or Dutch), acknowledge them as present. DO NOT say they don't exist if you found a version in at least one of these languages.
+    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal) and Shipping. 
+    Acknowledge Dutch or English versions as valid.
+    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO). Check for Privacy Policies in German, English, or Dutch.
+    If a policy exists in any of these languages, it is considered present.
+    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
     ux: `You are a Conversion Expert. Focus on usability and trust signals. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    company: `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue, Email, Phone, Key People.`,
+    company: `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue, Email, Phone, Key People.
+    PRIORITY: Look at 'legal' pageType pages (Impressum/Colofon) for structured data:
+    - VAT ID (USt-IdNr / BTW-nummer)
+    - Registration Number (HRB/HRA/KvK)
+    - Managing Directors (Geschäftsführer / Bestuurders)
+    - Legal Form (GmbH, AG, BV, etc.)`,
     localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first. For Machine Translation or Client-Side widgets, severity is HIGH. Include sourceUrl and verificationNote.`,
     seo: `You are a Technical SEO Specialist. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
     trust: `You are a Trust Auditor. Focus on social proof and credibility. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
@@ -64,7 +79,17 @@ YOU MUST RESPOND WITH ONLY VALID JSON.
 Required structure:
 {
   "overview": "Executive summary...",
-  "companyInfo": { "name": "...", "industry": "...", "email": "...", "phone": "...", "contacts": [] },
+  "companyInfo": { 
+    "name": "...", 
+    "industry": "...", 
+    "email": "...", 
+    "phone": "...", 
+    "vat_id": "...", 
+    "registration_number": "...", 
+    "managing_directors": [], 
+    "legal_form": "...",
+    "contacts": [] 
+  },
   "sections": [{ "title": "...", "findings": [{ "problem": "...", "explanation": "...", "recommendation": "...", "severity": "high|medium|low", "sourceUrl": "...", "verificationNote": "..." }] }],
   "conclusion": "...",
   "actionList": ["Action 1", "Action 2"]
@@ -92,7 +117,9 @@ export async function executeAuditWorkflow(
     }
 
     // Smart context truncation
-    const contextLimit = 150000
+    // Smart context truncation
+    // OPTIMIZATION: Reduced from 150k to 60k to prevent hitting OpenAI TPM limits with 11 parallel agents.
+    const contextLimit = 60000
     const safeContext: any = {
         translationStructure: fullData?.translationStructure || "Not available",
         company: fullData?.company || {},
@@ -124,38 +151,49 @@ export async function executeAuditWorkflow(
     } else {
         await updateStatus('Deploying 11 AI Auditor Agents...')
 
+        await updateStatus('Deploying ALL 11 AI Auditor Agents (Parallel Swarm)...')
+
+        let agentsFinished = 0
         const callAgent = async (instruction: string, name: string) => {
             console.log(`[Agent ${name}] Starting...`)
             try {
-                const res = await callOpenAI(apiKey, instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5)
-                if (!res || res.length === 0) return `Agent ${name}: No issues found.`
+                // Use gpt-4o-mini for speed and reliability, with 0 retries to prevent timeouts
+                const res = await callOpenAI(apiKey, instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5, 4000, 0)
+                agentsFinished++
                 console.log(`[Agent ${name}] Done (${res.length} chars)`)
-                return res
+                return res || `Agent ${name}: No issues found.`
             } catch (e) {
+                agentsFinished++
                 console.error(`[Agent ${name}] Failed:`, e)
                 return `Agent ${name}: Analysis unavailable.`
             }
         }
 
-        await updateStatus('Squad 1: Legal, Consumer, Privacy, UX, Company...')
-        const [r1, r2, r3, r4, r5] = await Promise.all([
+        const updateProgress = async () => {
+            while (agentsFinished < 11) {
+                await updateStatus(`Audit Swarm Analyzing: ${agentsFinished}/11 Agents Complete...`)
+                await new Promise(r => setTimeout(r, 1500))
+            }
+        }
+
+        // Execute ALL agents in parallel to maximize speed within the wall-clock limit
+        const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] = await Promise.all([
             callAgent(AGENT_INSTRUCTIONS.legal, 'Legal'),
             callAgent(AGENT_INSTRUCTIONS.consumer, 'Consumer'),
             callAgent(AGENT_INSTRUCTIONS.privacy, 'Privacy'),
             callAgent(AGENT_INSTRUCTIONS.ux, 'UX'),
-            callAgent(AGENT_INSTRUCTIONS.company, 'Company')
-        ])
-        res1 = r1; res2 = r2; res3 = r3; res4 = r4; res5 = r5
-
-        await updateStatus('Squad 2: Localization, SEO, Trust, Checkout, Price, QA...')
-        const [r6, r7, r8, r9, r10, r11] = await Promise.all([
+            callAgent(AGENT_INSTRUCTIONS.company, 'Company'),
             callAgent(AGENT_INSTRUCTIONS.localization, 'Localization'),
             callAgent(AGENT_INSTRUCTIONS.seo, 'SEO'),
             callAgent(AGENT_INSTRUCTIONS.trust, 'Trust'),
             callAgent(AGENT_INSTRUCTIONS.checkout, 'Checkout'),
             callAgent(AGENT_INSTRUCTIONS.price, 'Price'),
-            callAgent(AGENT_INSTRUCTIONS.translation, 'Translation')
+            callAgent(AGENT_INSTRUCTIONS.translation, 'Translation'),
+            updateProgress()
         ])
+
+        // Map results variables
+        res1 = r1; res2 = r2; res3 = r3; res4 = r4; res5 = r5
         res6 = r6; res7 = r7; res8 = r8; res9 = r9; res10 = r10; res11 = r11
     }
 

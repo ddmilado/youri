@@ -82,7 +82,14 @@ export async function callOpenAI(
         model: model,
         messages,
         temperature,
-        max_tokens: maxTokens
+    }
+
+    // Newer models (o1, gpt-5) require 'max_completion_tokens' and fixed temperature
+    if (model.startsWith('o1') || model.includes('gpt-5')) {
+        requestBody.max_completion_tokens = maxTokens
+        requestBody.temperature = 1
+    } else {
+        requestBody.max_tokens = maxTokens
     }
 
     if (responseFormat) {
@@ -96,7 +103,8 @@ export async function callOpenAI(
         console.log(`Calling OpenAI with model: ${model} (max_tokens: ${maxTokens})`)
 
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 60000)
+        // Reduced timeout to 35s to fit within Edge Function limits
+        const timeoutId = setTimeout(() => controller.abort(), 35000)
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',

@@ -50,28 +50,42 @@ export interface JobReport {
 
 // Agent Instructions
 const AGENT_INSTRUCTIONS = {
-    legal: `You are a German & EU Legal Specialist. Focus on Impressum (Imprint), AGB (Terms), and GDPR. 
-    IMPORTANT: If legal documents exist in any language (German, English, or Dutch), acknowledge them as present. DO NOT say they don't exist if you found a version in at least one of these languages.
+    legal: `You are a German & EU Legal Specialist. Focus ONLY on missing Impressum (Imprint), AGB (Terms), and GDPR requirements.
+    STRICT RULES:
+    1. If legal documents exist in any language (German, English, or Dutch), acknowledge them as present. DO NOT say they don't exist.
+    2. IGNORE "missing contact information" findings if Email or Phone is visible anywhere on the site.
+    3. IGNORE generic "best practices". Report ONLY if a specific legally required field is missing.
     For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
     consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal) and Shipping. 
-    Acknowledge Dutch or English versions as valid.
+    STRICT RULES:
+    1. Acknowledge Dutch or English versions as valid.
+    2. Check the provided context carefully for "AGB", "Terms", "Conditions", "Algemene Voorwaarden". If links exist, DO NOT flag them as missing.
+    3. Only report missing policies if you are 100% sure they are absent.
     For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO). Check for Privacy Policies in German, English, or Dutch.
-    If a policy exists in any of these languages, it is considered present.
+    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO). 
+    STRICT RULES:
+    1. Check for Privacy Policies in German, English, or Dutch. If present -> NO ERROR.
+    2. Do NOT report "missing contact info" in the privacy policy if it exists elsewhere.
+    3. Focus ONLY on the existence of the policy and cookie banner logic.
     For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    ux: `You are a Conversion Expert. Focus on usability and trust signals. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    ux: `You are a Translation UX Specialist. Focus ONLY on how translation affects user experience.
+    STRICT RULES:
+    1. Report layout breaks caused by text expansion (e.g. German text breaking buttons).
+    2. Report partial translations (e.g. mixed English/German on the same page).
+    3. Report navigation menus that don't switch language correctly.
+    4. IGNORE general usability issues (colors, fonts, contrast) if they are not caused by translation.
+    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
     company: `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue, Email, Phone, Key People.
-    PRIORITY: Look at 'legal' pageType pages (Impressum/Colofon) for structured data:
-    - VAT ID (USt-IdNr / BTW-nummer)
-    - Registration Number (HRB/HRA/KvK)
-    - Managing Directors (Geschäftsführer / Bestuurders)
-    - Legal Form (GmbH, AG, BV, etc.)`,
-    localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first. For Machine Translation or Client-Side widgets, severity is HIGH. Include sourceUrl and verificationNote.`,
-    seo: `You are a Technical SEO Specialist. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    trust: `You are a Trust Auditor. Focus on social proof and credibility. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    checkout: `You are a Checkout Specialist. Focus on payment transparency. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    price: `You are a Price Transparency Auditor. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    translation: `You are a Translation QA Expert. Analyze 3-5 text samples for machine translation artifacts. For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl.`
+    STRICT RULES:
+    1. Look at 'legal' pageType pages (Impressum/Colofon) for structured data.
+    2. If a specific field is not clearly visible, explicitely state it is "Not found". DO NOT GUESS.
+    3. Structured data needed: VAT ID, Registration Number, Managing Directors, Legal Form.`,
+    localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first. 
+    STRICT RULES:
+    1. If machine translation is detected, severity is HIGH. 
+    2. Ignore minor grammar nitpicks. Focus on structural issues (e.g. English checkout on German site).
+    3. Include sourceUrl and verificationNote.`,
+    translation: `You are a Translation QA Expert. Analyze text for obvious machine translation artifacts. Report ONLY if text is clearly nonsense or wrong language. verificationNote.`
 }
 
 const COMPILER_INSTRUCTION = `You are the Lead Auditor. Combine analyses into a JSON Deep Audit Report.
@@ -97,7 +111,7 @@ Required structure:
 RULES:
 1. EVERY finding MUST have all fields
 2. severity MUST be high, medium, or low
-3. Start with { and end with }
+3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key. Do not return "Not found" string in the JSON.
 4. If Machine Translation detected, include "Hire professional translator" in actionList`
 
 export async function executeAuditWorkflow(
@@ -140,18 +154,17 @@ export async function executeAuditWorkflow(
     const contextString = JSON.stringify(safeContext, null, 2)
     const baseContext = `Analyze this website: ${url}\n\n[CONTEXT START]\n${contextString}\n[CONTEXT END]`
 
-    let res1, res2, res3, res4, res5, res6, res7, res8, res9, res10, res11
+    let res1, res2, res3, res4, res5, res6, res11
 
     if (cachedData) {
         await updateStatus('Restoring previous agent findings...')
         res1 = cachedData.legal; res2 = cachedData.consumer; res3 = cachedData.privacy
         res4 = cachedData.ux; res5 = cachedData.company; res6 = cachedData.localization
-        res7 = cachedData.seo; res8 = cachedData.trust; res9 = cachedData.checkout
-        res10 = cachedData.price; res11 = cachedData.translationQuality
+        res11 = cachedData.translationQuality
     } else {
-        await updateStatus('Deploying 11 AI Auditor Agents...')
+        await updateStatus('Deploying 7 AI Auditor Agents...')
 
-        await updateStatus('Deploying ALL 11 AI Auditor Agents (Parallel Swarm)...')
+        await updateStatus('Deploying ALL 7 AI Auditor Agents (Parallel Swarm)...')
 
         let agentsFinished = 0
         const callAgent = async (instruction: string, name: string) => {
@@ -170,36 +183,32 @@ export async function executeAuditWorkflow(
         }
 
         const updateProgress = async () => {
-            while (agentsFinished < 11) {
-                await updateStatus(`Audit Swarm Analyzing: ${agentsFinished}/11 Agents Complete...`)
+            while (agentsFinished < 7) {
+                await updateStatus(`Audit Swarm Analyzing: ${agentsFinished}/7 Agents Complete...`)
                 await new Promise(r => setTimeout(r, 1500))
             }
         }
 
         // Execute ALL agents in parallel to maximize speed within the wall-clock limit
-        const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] = await Promise.all([
+        const [r1, r2, r3, r4, r5, r6, r11] = await Promise.all([
             callAgent(AGENT_INSTRUCTIONS.legal, 'Legal'),
             callAgent(AGENT_INSTRUCTIONS.consumer, 'Consumer'),
             callAgent(AGENT_INSTRUCTIONS.privacy, 'Privacy'),
             callAgent(AGENT_INSTRUCTIONS.ux, 'UX'),
             callAgent(AGENT_INSTRUCTIONS.company, 'Company'),
             callAgent(AGENT_INSTRUCTIONS.localization, 'Localization'),
-            callAgent(AGENT_INSTRUCTIONS.seo, 'SEO'),
-            callAgent(AGENT_INSTRUCTIONS.trust, 'Trust'),
-            callAgent(AGENT_INSTRUCTIONS.checkout, 'Checkout'),
-            callAgent(AGENT_INSTRUCTIONS.price, 'Price'),
             callAgent(AGENT_INSTRUCTIONS.translation, 'Translation'),
             updateProgress()
         ])
 
         // Map results variables
         res1 = r1; res2 = r2; res3 = r3; res4 = r4; res5 = r5
-        res6 = r6; res7 = r7; res8 = r8; res9 = r9; res10 = r10; res11 = r11
+        res6 = r6; res11 = r11
     }
 
     const allAgentData = {
         legal: res1, consumer: res2, privacy: res3, ux: res4, company: res5,
-        localization: res6, seo: res7, trust: res8, checkout: res9, price: res10, translationQuality: res11
+        localization: res6, translationQuality: res11
     }
 
     if (onAgentsComplete) await onAgentsComplete(allAgentData)
@@ -217,10 +226,6 @@ export async function executeAuditWorkflow(
         { role: 'assistant', content: `UX: ${truncate(safeRes(res4))}` },
         { role: 'assistant', content: `Company: ${truncate(safeRes(res5))}` },
         { role: 'assistant', content: `Localization: ${truncate(safeRes(res6))}` },
-        { role: 'assistant', content: `SEO: ${truncate(safeRes(res7))}` },
-        { role: 'assistant', content: `Trust: ${truncate(safeRes(res8))}` },
-        { role: 'assistant', content: `Checkout: ${truncate(safeRes(res9))}` },
-        { role: 'assistant', content: `Price: ${truncate(safeRes(res10))}` },
         { role: 'assistant', content: `Translation: ${truncate(safeRes(res11))}` }
     ]
 

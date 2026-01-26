@@ -18,7 +18,7 @@ export async function executeContextGatheringAgent(
             },
             body: JSON.stringify({
                 url: targetUrl,
-                limit: 10, // Reduce page limit to ensure faster completion
+                limit: 10, // Reverted to 10 to prevent wall_clock timeouts (20 pages * 15k chars is too heavy)
                 scrapeOptions: { formats: ['markdown', 'html'] }
             })
         })
@@ -256,7 +256,7 @@ export function formatCrawlResults(data: any[]): any {
         return {
             title: item.metadata?.title || 'Page',
             url: item.metadata?.sourceURL || '',
-            markdown: (item.markdown || '').substring(0, 4000),
+            markdown: (item.markdown || '').substring(0, 15000),
             pageType: isLegal ? 'legal' : 'general'
         }
     })

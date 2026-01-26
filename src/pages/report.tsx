@@ -476,42 +476,59 @@ export function ReportPage() {
                         <span className="text-muted-foreground">Company:</span>
                         <span className="text-right font-medium">{report.companyInfo.name}</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Industry:</span>
-                        <span className="font-medium text-right">{report.companyInfo.industry || 'Not found'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">HQ:</span>
-                        <span className="font-medium text-right">{report.companyInfo.hq_location || 'Not found'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Founded:</span>
-                        <span className="font-medium text-right">{report.companyInfo.founded || 'Not found'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Size:</span>
-                        <span className="font-medium text-right">{report.companyInfo.employees || 'Not found'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue:</span>
-                        <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold text-right">{report.companyInfo.revenue || 'Not found'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Email:</span>
-                        <span className="font-medium text-right underline underline-offset-2">
-                          {report.companyInfo.email && !report.companyInfo.email.toLowerCase().includes('not found') ? (
+
+                      {report.companyInfo.industry && report.companyInfo.industry !== 'Not found' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Industry:</span>
+                          <span className="font-medium text-right">{report.companyInfo.industry}</span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.hq_location && report.companyInfo.hq_location !== 'Not found' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">HQ:</span>
+                          <span className="font-medium text-right">{report.companyInfo.hq_location}</span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.founded && report.companyInfo.founded !== 'Not found' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Founded:</span>
+                          <span className="font-medium text-right">{report.companyInfo.founded}</span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.employees && report.companyInfo.employees !== 'Not found' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Size:</span>
+                          <span className="font-medium text-right">{report.companyInfo.employees}</span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.revenue && report.companyInfo.revenue !== 'Not found' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Revenue:</span>
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400 font-semibold text-right">{report.companyInfo.revenue}</span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.email && !report.companyInfo.email.toLowerCase().includes('not found') && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Email:</span>
+                          <span className="font-medium text-right underline underline-offset-2">
                             <a href={`mailto:${report.companyInfo.email}`}>{report.companyInfo.email}</a>
-                          ) : 'Not found'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone:</span>
-                        <span className="font-medium text-right">
-                          {report.companyInfo.phone && !report.companyInfo.phone.toLowerCase().includes('not found') ? (
+                          </span>
+                        </div>
+                      )}
+
+                      {report.companyInfo.phone && !report.companyInfo.phone.toLowerCase().includes('not found') && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone:</span>
+                          <span className="font-medium text-right">
                             <a href={`tel:${report.companyInfo.phone}`}>{report.companyInfo.phone}</a>
-                          ) : 'Not found'}
-                        </span>
-                      </div>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -519,44 +536,55 @@ export function ReportPage() {
             )}
 
             {/* LEADERSHIP & CONTACTS */}
-            {report?.companyInfo?.contacts && report.companyInfo.contacts.length > 0 && (
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <User className="h-4 w-4 text-blue-600" />
-                      Leadership & Contacts
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {report.companyInfo.contacts.map((contact, idx) => (
-                        <div key={idx} className="p-3 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium text-sm">{contact.name}</div>
-                            <div className="flex gap-2">
-                              {contact.linkedin && !contact.linkedin.toLowerCase().includes('not found') && (
-                                <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
-                                  <Linkedin className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {contact.email && !contact.email.toLowerCase().includes('not found') && (
-                                <a href={`mailto:${contact.email}`} className="text-slate-500 hover:text-slate-700">
-                                  <Mail className="h-3.5 w-3.5" />
-                                </a>
-                              )}
+            {/* LEADERSHIP & CONTACTS */}
+            {(() => {
+              const validContacts = report?.companyInfo?.contacts?.filter(c =>
+                c.name &&
+                !c.name.toLowerCase().includes('not found') &&
+                c.name.trim().length > 0
+              ) || []
+
+              if (validContacts.length === 0) return null
+
+              return (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
+                  <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <User className="h-4 w-4 text-blue-600" />
+                        Leadership & Contacts
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {validContacts.map((contact, idx) => (
+                          <div key={idx} className="p-3 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium text-sm">{contact.name}</div>
+                              <div className="flex gap-2">
+                                {contact.linkedin && !contact.linkedin.toLowerCase().includes('not found') && (
+                                  <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
+                                    <Linkedin className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                                {contact.email && !contact.email.toLowerCase().includes('not found') && (
+                                  <a href={`mailto:${contact.email}`} className="text-slate-500 hover:text-slate-700">
+                                    <Mail className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground italic">
+                              {(!contact.title || contact.title === 'Not found') ? 'Role not identified' : contact.title}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground italic">
-                            {contact.title === 'Not found' ? 'Role not identified' : contact.title}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })()}
 
             <Card>
               <CardHeader className="pb-2">

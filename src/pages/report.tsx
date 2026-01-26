@@ -491,7 +491,7 @@ export function ReportPage() {
                         </div>
                       )}
 
-                      {report.companyInfo.founded && report.companyInfo.founded !== 'Not found' && (
+                      {report.companyInfo.founded && (
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Founded:</span>
                           <span className="font-medium text-right">{report.companyInfo.founded}</span>

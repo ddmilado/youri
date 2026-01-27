@@ -10,7 +10,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
 import { Lead, updateLead, updateJob, CompanyInfo, getJobById, Contact } from "@/lib/supabase"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"

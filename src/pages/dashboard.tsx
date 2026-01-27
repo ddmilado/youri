@@ -45,7 +45,6 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const queryClient = useQueryClient()
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([])
   const [isCreatingLeads, setIsCreatingLeads] = useState(false)
 

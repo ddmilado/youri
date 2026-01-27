@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Lead, getJobById } from "@/lib/supabase"
 import { useQuery } from "@tanstack/react-query"
-import { ExternalLink, FileText, AlertTriangle, CheckCircle2, Users } from "lucide-react"
+import { ExternalLink, FileText, AlertTriangle, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import { formatDistanceToNow } from "date-fns"
 
@@ -193,7 +193,7 @@ export function LeadDetailsDialog({ lead, open, onOpenChange }: LeadDetailsDialo
                                         <div>
                                             <div className="text-sm font-medium">Audit Score</div>
                                             <div className={`text-2xl font-bold mt-1 ${(job.score || 0) >= 80 ? 'text-green-600' :
-                                                    (job.score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                                (job.score || 0) >= 60 ? 'text-yellow-600' : 'text-red-600'
                                                 }`}>
                                                 {job.score ? `${job.score}/100` : 'N/A'}
                                             </div>

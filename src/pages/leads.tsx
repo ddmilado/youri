@@ -1,14 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Users, Trash2, ExternalLink, Eye } from 'lucide-react'
+import { Trash2, Eye, Share2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getLeads, deleteProjectLeads, type Lead } from '@/lib/supabase'
-import { useAuth } from '@/contexts/auth-context'
+import { getLeads, deleteProjectLeads } from '@/lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
     Table,
     TableBody,
@@ -36,12 +35,11 @@ const StatusBadge = ({ status }: { status: string }) => {
     )
 }
 
-import { Link } from 'react-router-dom'
+
 
 // ... (imports remain)
 
 export function LeadsPage() {
-    const { user } = useAuth()
     const queryClient = useQueryClient()
     const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
     const [isDeleting, setIsDeleting] = useState(false)
@@ -51,7 +49,6 @@ export function LeadsPage() {
     const { data: leads, isLoading } = useQuery({
         queryKey: ['leads'],
         queryFn: getLeads,
-        enabled: !!user,
     })
 
     const handleDelete = async () => {
@@ -168,28 +165,39 @@ export function LeadsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                {lead.created_by === user?.id ? (
-                                                    <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
-                                                ) : (
-                                                    <span className="text-sm">{lead.creator_name || 'Team Member'}</span>
-                                                )}
+                                                <span className="text-sm">{lead.creator_name || 'Team Member'}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                                             {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                asChild
-                                                className="hover:bg-slate-200"
-                                            >
-                                                <Link to={`/leads/${lead.id}`} className="flex items-center gap-2">
-                                                    <Eye className="h-4 w-4" />
-                                                    <span>View</span>
-                                                </Link>
-                                            </Button>
+                                            <div className="flex justify-end gap-2 text-right">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                    onClick={() => {
+                                                        const url = `${window.location.origin}/leads/${lead.id}`
+                                                        navigator.clipboard.writeText(url)
+                                                        toast.success('Link copied')
+                                                    }}
+                                                    title="Copy link"
+                                                >
+                                                    <Share2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    asChild
+                                                    className="hover:bg-slate-200"
+                                                >
+                                                    <Link to={`/leads/${lead.id}`} className="flex items-center gap-2">
+                                                        <Eye className="h-4 w-4" />
+                                                        <span>View</span>
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))

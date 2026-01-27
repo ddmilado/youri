@@ -1,15 +1,15 @@
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getLeadById, getJobById, deleteProjectLeads } from '@/lib/supabase'
+import { getLeadById, getJobById, deleteProjectLeads, type CompanyInfo } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ExternalLink, FileText, ArrowLeft, Users, Building2, Globe, Calendar, Mail, Phone, Trash2, Wand2 } from 'lucide-react'
+import { ExternalLink, FileText, ArrowLeft, Users, Building2, Globe, Calendar, Mail, Phone, Trash2, Wand2, Share2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { EnrichLeadDialog } from '@/components/enrich-lead-dialog'
 
 export function LeadDetailsPage() {
@@ -29,6 +29,19 @@ export function LeadDetailsPage() {
         queryFn: () => (lead?.job_id ? getJobById(lead.job_id) : Promise.resolve(null)),
         enabled: !!lead?.job_id,
     })
+
+    // Prepare display data with fallback logic
+    const companyInfo = useMemo(() => {
+        return (lead?.company_data || job?.report?.companyInfo || { name: '', contacts: [] }) as CompanyInfo
+    }, [lead, job])
+
+    const companyName = lead?.company_name || lead?.title || 'Unknown Company'
+
+    const handleShare = () => {
+        const url = window.location.href
+        navigator.clipboard.writeText(url)
+        toast.success('Link copied to clipboard')
+    }
 
     const handleDelete = async () => {
         if (!lead || !confirm('Are you sure you want to delete this lead?')) return
@@ -59,49 +72,54 @@ export function LeadDetailsPage() {
         </div>
     }
 
-    if (!lead) {
+    if (!lead && !isLoadingLead) {
         return <div className="p-8 text-center">Lead not found</div>
     }
-
-    // Prepare display data with fallback logic
-    const companyInfo = lead.company_data || job?.report?.companyInfo || {}
-    const companyName = lead.company_name || lead.title
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Link to="/leads" className="hover:text-foreground flex items-center gap-1 transition-colors">
-                            <ArrowLeft className="h-3 w-3" /> Back to Leads
-                        </Link>
-                    </div>
+                    {user && (
+                        <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                            <Link to="/leads" className="hover:text-foreground flex items-center gap-1 transition-colors">
+                                <ArrowLeft className="h-3 w-3" /> Back to Leads
+                            </Link>
+                        </div>
+                    )}
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold tracking-tight">{companyName}</h1>
-                        <Badge variant="outline" className={`${getStatusColor(lead.status)} text-sm px-2.5 py-0.5`}>
-                            {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                        <Badge variant="outline" className={`${getStatusColor(lead?.status || 'new')} text-sm px-2.5 py-0.5`}>
+                            {(lead?.status || 'new').charAt(0).toUpperCase() + (lead?.status || 'new').slice(1)}
                         </Badge>
                     </div>
                     <a
-                        href={lead.url}
+                        href={lead?.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-blue-600 flex items-center gap-1.5 transition-colors w-fit"
                     >
                         <Globe className="h-4 w-4" />
-                        {lead.url}
+                        {lead?.url}
                         <ExternalLink className="h-3 w-3" />
                     </a>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Button variant="outline" size="sm" onClick={() => setEnrichOpen(true)} className="flex items-center gap-2">
-                        <Wand2 className="h-4 w-4" /> Enrich
+                    <Button variant="outline" size="sm" onClick={handleShare} className="flex items-center gap-2">
+                        <Share2 className="h-4 w-4" /> Share
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={handleDelete} className="flex items-center gap-2">
-                        <Trash2 className="h-4 w-4" /> Delete Lead
-                    </Button>
+                    {user && (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => setEnrichOpen(true)} className="flex items-center gap-2">
+                                <Wand2 className="h-4 w-4" /> Enrich
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={handleDelete} className="flex items-center gap-2">
+                                <Trash2 className="h-4 w-4" /> Delete Lead
+                            </Button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -267,8 +285,8 @@ export function LeadDetailsPage() {
                                 </div>
                                 <div className="overflow-hidden">
                                     <p className="text-xs text-muted-foreground">Created By</p>
-                                    <p className="text-sm font-medium truncate" title={lead.creator_name || 'Team Member'}>
-                                        {lead.creator_name || 'Team Member'}
+                                    <p className="text-sm font-medium truncate" title={lead?.creator_name || 'Team Member'}>
+                                        {lead?.creator_name || 'Team Member'}
                                     </p>
                                 </div>
                             </div>
@@ -280,10 +298,10 @@ export function LeadDetailsPage() {
                                 <div>
                                     <p className="text-xs text-muted-foreground">Date Added</p>
                                     <p className="text-sm font-medium">
-                                        {new Date(lead.created_at).toLocaleDateString()}
+                                        {lead?.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+                                        {lead?.created_at ? formatDistanceToNow(new Date(lead.created_at), { addSuffix: true }) : ''}
                                     </p>
                                 </div>
                             </div>

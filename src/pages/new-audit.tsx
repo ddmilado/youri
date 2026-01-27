@@ -303,14 +303,15 @@ export function NewAuditPage() {
                 {workflowType === 'keyword' ? 'Search Keywords' : workflowType === 'translation' ? 'Website URL' : 'Website URLs'} *
               </Label>
               {workflowType === 'keyword' ? (
-                <Input
+                <Textarea
                   id="inputText"
                   placeholder="e.g., 'software companies Germany site:.de'"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   required
                   disabled={loading}
-                  className="text-base h-14"
+                  className="text-base min-h-[120px] resize-y"
+                  rows={4}
                 />
               ) : (
                 <Textarea
@@ -346,24 +347,24 @@ export function NewAuditPage() {
               disabled={loading}
             >
               {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {workflowType === 'keyword' ? 'Searching...' : 'Running AI Analysis...'}
-                </>
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{workflowType === 'keyword' ? 'Searching...' : 'Running AI Analysis...'}</span>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center justify-center gap-2">
                   {workflowType === 'keyword' ? (
                     <>
-                      <Search className="mr-2 h-5 w-5" />
-                      Find Companies
+                      <Search className="h-5 w-5" />
+                      <span>Find Companies</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Analyze URL
+                      <Sparkles className="h-5 w-5" />
+                      <span>Analyze URL</span>
                     </>
                   )}
-                </>
+                </div>
               )}
             </Button>
           </form>

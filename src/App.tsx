@@ -39,6 +39,25 @@ const LoadingFallback = () => (
   </div>
 )
 
+const LeadDetailsWrapper = () => {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingFallback />
+
+  if (user) {
+    return (
+      <Layout>
+        <LeadDetails />
+      </Layout>
+    )
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto py-8">
+      <LeadDetails />
+    </div>
+  )
+}
+
 const ReportPageWrapper = () => {
   const { user, loading } = useAuth()
   if (loading) return <LoadingFallback />
@@ -120,13 +139,9 @@ function App() {
                 <Route
                   path="/leads/:id"
                   element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Suspense fallback={<LoadingFallback />}>
-                          <LeadDetails />
-                        </Suspense>
-                      </Layout>
-                    </ProtectedRoute>
+                    <Suspense fallback={<LoadingFallback />}>
+                      <LeadDetailsWrapper />
+                    </Suspense>
                   }
                 />
                 <Route

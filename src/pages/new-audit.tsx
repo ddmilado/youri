@@ -310,7 +310,7 @@ export function NewAuditPage() {
                   onChange={(e) => setInputText(e.target.value)}
                   required
                   disabled={loading}
-                  className="text-base"
+                  className="text-base h-14"
                 />
               ) : (
                 <Textarea
@@ -342,10 +342,7 @@ export function NewAuditPage() {
             <Button
               type="submit"
               size="lg"
-              className={`w-full transition-all duration-200 ${workflowType === 'keyword'
-                ? 'bg-blue-600'
-                : 'bg-emerald-600'
-                }`}
+              className="w-full transition-all duration-200 bg-emerald-600"
               disabled={loading}
             >
               {loading ? (

@@ -291,12 +291,55 @@ export type Database = {
           created_at?: string
         }
       }
+      leads: {
+        Row: {
+          id: string
+          job_id: string | null
+          url: string
+          title: string
+          status: 'new' | 'contacted' | 'qualified' | 'lost' | 'won'
+          created_by: string
+          creator_name: string | null
+          creator_email: string | null
+          created_at: string
+          company_name: string | null
+          company_data: CompanyInfo | null
+        }
+        Insert: {
+          id?: string
+          job_id?: string | null
+          url: string
+          title: string
+          status?: 'new' | 'contacted' | 'qualified' | 'lost' | 'won'
+          created_by: string
+          creator_name?: string | null
+          creator_email?: string | null
+          created_at?: string
+          company_name?: string | null
+          company_data?: CompanyInfo | null
+        }
+        Update: {
+          id?: string
+          job_id?: string | null
+          url?: string
+          title?: string
+          status?: 'new' | 'contacted' | 'qualified' | 'lost' | 'won'
+          created_by?: string
+          creator_name?: string | null
+          creator_email?: string | null
+          created_at?: string
+          company_name?: string | null
+          company_data?: CompanyInfo | null
+        }
+      }
     }
   }
 }
 
 export type LeadResult = Database['public']['Tables']['ai_lead_results']['Row']
 export type KeywordSearchResult = Database['public']['Tables']['keyword_search_results']['Row']
+export type Lead = Database['public']['Tables']['leads']['Row']
+export type InsertLead = Database['public']['Tables']['leads']['Insert']
 
 /**
  * Get all lead results for a specific user
@@ -535,6 +578,104 @@ export async function deletePeopleSearches(searchIds: string[]) {
 export async function deleteLeadResults(leadIds: string[]) {
   const { error } = await supabase
     .from('ai_lead_results')
+    .delete()
+    .in('id', leadIds)
+
+  if (error) throw error
+}
+
+
+/**
+ * Get a single job (audit) by ID
+ */
+export async function getJobById(id: string) {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as Database['public']['Tables']['jobs']['Row']
+}
+
+/**
+ * Update a job (audit)
+ */
+export async function updateJob(id: string, updates: Database['public']['Tables']['jobs']['Update']) {
+  const { data, error } = await supabase
+    .from('jobs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Database['public']['Tables']['jobs']['Row']
+}
+
+/**
+ * Get all project leads (team access allowed via RLS)
+ */
+export async function getLeads() {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as Lead[]
+}
+
+/**
+ * Get a single lead by ID
+ */
+export async function getLeadById(id: string) {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as Lead
+}
+
+/**
+ * Create a new lead manually or from audit
+ */
+export async function createLead(lead: InsertLead) {
+  const { data, error } = await supabase
+    .from('leads')
+    .insert(lead)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Lead
+}
+
+/**
+ * Update a lead
+ */
+export async function updateLead(id: string, updates: Database['public']['Tables']['leads']['Update']) {
+  const { data, error } = await supabase
+    .from('leads')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Lead
+}
+
+/**
+ * Delete project leads by IDs
+ */
+export async function deleteProjectLeads(leadIds: string[]) {
+  const { error } = await supabase
+    .from('leads')
     .delete()
     .in('id', leadIds)
 

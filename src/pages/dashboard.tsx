@@ -2,13 +2,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, TrendingUp, Users, Filter, Download } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Plus, TrendingUp, Users, Filter, Download, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { supabase, getLeadResults, getKeywordSearchResults, getRecentPeopleSearches } from '@/lib/supabase'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase, getLeadResults, getKeywordSearchResults, getRecentPeopleSearches, createLead } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { formatDistanceToNow } from 'date-fns'
 import { Search as SearchIcon, History } from 'lucide-react'
+import { toast } from 'sonner'
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -42,16 +45,24 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([])
+  const [isCreatingLeads, setIsCreatingLeads] = useState(false)
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] ||
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.email?.split('@')[0] || ''
 
-  // Fetch recent jobs (Audits)
+  // Fetch recent jobs (Audits) - Removed user_id filter to show all accessible jobs (Team view)
   const { data: jobs, isLoading: isLoadingJobs } = useQuery({
-    queryKey: ['jobs', user?.id],
+    queryKey: ['jobs', 'all'], // Changed queryKey to be broader
     queryFn: async () => {
-      const { data, error } = await supabase.from('jobs').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(10)
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20) // Increased limit slightly
+
       if (error) throw error
       return data
     },
@@ -86,6 +97,44 @@ export function DashboardPage() {
     totalLeads: leadResults?.length || 0,
     activeAudits: jobs?.filter(j => j.status === 'processing').length || 0,
     completedAudits: jobs?.filter(j => j.status === 'completed').length || 0
+  }
+
+  const handleAddToLeads = async () => {
+    if (!user || selectedJobIds.length === 0) return
+
+    setIsCreatingLeads(true)
+    try {
+      const selectedJobs = jobs?.filter(j => selectedJobIds.includes(j.id)) || []
+
+      let count = 0
+      for (const job of selectedJobs) {
+        // Basic company name extraction from title or URL
+        const hostname = job.url.includes('://') ? new URL(job.url).hostname : job.url
+        const companyName = job.title !== hostname ? job.title : hostname.replace('www.', '').split('.')[0]
+
+        await createLead({
+          job_id: job.id,
+          url: job.url,
+          title: job.title,
+          status: 'new',
+          created_by: user.id,
+          creator_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+          creator_email: user.email,
+          company_name: companyName.charAt(0).toUpperCase() + companyName.slice(1) // Capitalize
+        })
+        count++
+      }
+
+      toast.success(`Successfully added ${count} lead${count !== 1 ? 's' : ''} to Leads`)
+      setSelectedJobIds([])
+      // Invalidate leads query if we had one here, but it's on a different page. 
+      // We might want to prefetch?
+    } catch (error) {
+      console.error('Failed to create leads:', error)
+      toast.error('Failed to add leads')
+    } finally {
+      setIsCreatingLeads(false)
+    }
   }
 
   return (
@@ -171,10 +220,59 @@ export function DashboardPage() {
 
           <TabsContent value="audits" className="m-0">
             <Card className="overflow-hidden">
+              {/* Batch Actions Toolbar */}
+              {selectedJobIds.length > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 px-4 border-b border-emerald-100 dark:border-emerald-800 flex items-center justify-between transition-all animate-in slide-in-from-top-2">
+                  <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                    {selectedJobIds.length} audit{selectedJobIds.length !== 1 && 's'} selected
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setSelectedJobIds([])}
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground h-8"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleAddToLeads}
+                      disabled={isCreatingLeads}
+                      className="bg-emerald-600 text-white hover:bg-emerald-700 h-8"
+                    >
+                      {isCreatingLeads ? (
+                        <>
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Users className="mr-2 h-3.5 w-3.5" />
+                          Add to Leads
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <CardContent className="p-0">
                 <Table className="w-full">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={jobs && jobs.length > 0 && selectedJobIds.length === jobs.length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedJobIds(jobs?.map(j => j.id) || [])
+                            } else {
+                              setSelectedJobIds([])
+                            }
+                          }}
+                        />
+                      </TableHead>
                       <TableHead>Audit Title</TableHead>
                       <TableHead>URL</TableHead>
                       <TableHead>Status</TableHead>
@@ -187,6 +285,7 @@ export function DashboardPage() {
                     {isLoadingJobs ? (
                       [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
+                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -196,7 +295,19 @@ export function DashboardPage() {
                       ))
                     ) : jobs && jobs.length > 0 ? (
                       jobs.map((job) => (
-                        <TableRow key={job.id}>
+                        <TableRow key={job.id} className={selectedJobIds.includes(job.id) ? "bg-muted/50" : ""}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedJobIds.includes(job.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedJobIds(prev => [...prev, job.id])
+                                } else {
+                                  setSelectedJobIds(prev => prev.filter(id => id !== job.id))
+                                }
+                              }}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">{job.title}</TableCell>
                           <TableCell className="text-muted-foreground">{job.url}</TableCell>
                           <TableCell>
@@ -206,7 +317,7 @@ export function DashboardPage() {
                             {job.user_id === user?.id ? (
                               <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
                             ) : (
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">Team Member</span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{job.creator_name || 'Team Member'}</span>
                             )}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
@@ -221,7 +332,7 @@ export function DashboardPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                           No audits found. Create your first one.
                         </TableCell>
                       </TableRow>

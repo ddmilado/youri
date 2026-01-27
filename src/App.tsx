@@ -23,6 +23,8 @@ const queryClient = new QueryClient({
 // Lazy load pages to reduce initial bundle
 
 const Dashboard = lazy(() => import('@/pages/dashboard').then(m => ({ default: m.DashboardPage })))
+const Leads = lazy(() => import('@/pages/leads').then(m => ({ default: m.LeadsPage })))
+const LeadDetails = lazy(() => import('@/pages/lead-details').then(m => ({ default: m.LeadDetailsPage })))
 const NewAudit = lazy(() => import('@/pages/new-audit').then(m => ({ default: m.NewAuditPage })))
 const Report = lazy(() => import('@/pages/report').then(m => ({ default: m.ReportPage })))
 const Jobs = lazy(() => import('@/pages/jobs').then(m => ({ default: m.JobsPage })))
@@ -98,6 +100,30 @@ function App() {
                       <Layout>
                         <Suspense fallback={<LoadingFallback />}>
                           <Dashboard />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/leads"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <Leads />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/leads/:id"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <LeadDetails />
                         </Suspense>
                       </Layout>
                     </ProtectedRoute>

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, linkAnalysis, deleteJobs, deleteKeywordResults } from '@/lib/supabase'
+import { supabase, type Database, getKeywordSearchResults, runAIWorkflow, linkAnalysis, deleteJobs, deleteKeywordResults, createLead } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { useBackgroundTasks } from '@/contexts/background-tasks-context'
 import { Card, CardContent } from '@/components/ui/card'
@@ -274,6 +274,46 @@ function JobsPageContent() {
 
 
 
+  // Create Leads from selected audits
+  const [isCreatingLeads, setIsCreatingLeads] = useState(false)
+
+  const handleAddToLeads = async () => {
+    if (!user || selectedAudits.size === 0) return
+
+    setIsCreatingLeads(true)
+    try {
+      const selectedJobsList = jobs?.filter(j => selectedAudits.has(j.id)) || []
+
+      let count = 0
+      for (const job of selectedJobsList) {
+        // Basic company name extraction
+        const hostname = job.url.includes('://') ? new URL(job.url).hostname : job.url
+        const companyName = job.title !== hostname ? job.title : hostname.replace('www.', '').split('.')[0]
+
+        await createLead({
+          job_id: job.id,
+          url: job.url,
+          title: job.title,
+          status: 'new',
+          created_by: user.id,
+          creator_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+          creator_email: user.email,
+          company_name: companyName.charAt(0).toUpperCase() + companyName.slice(1) // Capitalize
+        })
+        count++
+      }
+
+      toast.success(`Successfully added ${count} lead${count !== 1 ? 's' : ''} to Leads`)
+      setSelectedAudits(new Set()) // Clear selection
+      // Optional: Navigate to leads? navigate('/leads')
+    } catch (error) {
+      console.error('Failed to create leads:', error)
+      toast.error('Failed to add leads')
+    } finally {
+      setIsCreatingLeads(false)
+    }
+  }
+
   const handleDeleteConfirm = async () => {
     if (deleteType === 'audits') {
       await deleteAuditsMutation.mutateAsync(Array.from(selectedAudits))
@@ -503,6 +543,29 @@ function JobsPageContent() {
                 <X className="h-4 w-4" />
               </Button>
               <span className="text-sm font-medium">{getSelectedCount()} selected</span>
+
+              {activeTab === 'audits' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddToLeads}
+                  disabled={isCreatingLeads}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 border-none"
+                >
+                  {isCreatingLeads ? (
+                    <>
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add to Leads
+                    </>
+                  )}
+                </Button>
+              )}
+
               {activeTab === 'searches' && (
                 <Button
                   size="sm"
@@ -592,7 +655,7 @@ function JobsPageContent() {
                             {result.user_id === user?.id ? (
                               <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
                             ) : (
-                              <span className="text-muted-foreground">Team Member</span>
+                              <span className="text-muted-foreground">{result.creator_name || 'Team Member'}</span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -670,7 +733,7 @@ function JobsPageContent() {
                             {job.user_id === user?.id ? (
                               <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
                             ) : (
-                              <span className="text-sm text-muted-foreground">Team Member</span>
+                              <span className="text-sm text-muted-foreground">{job.creator_name || 'Team Member'}</span>
                             )}
                           </TableCell>
                           <TableCell className="text-muted-foreground">{job.url}</TableCell>

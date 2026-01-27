@@ -56,7 +56,7 @@ const AGENT_INSTRUCTIONS = {
     2. IGNORE "missing contact information" findings if Email or Phone is visible anywhere on the site.
     3. IGNORE generic "best practices". Report ONLY if a specific legally required field is missing.
     For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal) and Shipping. 
+    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal). 
     STRICT RULES:
     1. Acknowledge Dutch or English versions as valid.
     2. Check the provided context carefully for "AGB", "Terms", "Conditions", "Algemene Voorwaarden". If links exist, DO NOT flag them as missing.

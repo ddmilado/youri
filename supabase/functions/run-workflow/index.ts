@@ -1,9 +1,8 @@
 // Run Workflow - Main Entry Point
-// Modular architecture for faster bundling and better maintainability
+// Two-Phase Architecture: Phase 1 (Crawl) -> Phase 2 (Analysis)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { executeContextGatheringAgent } from './firecrawl.ts'
 import { executeAuditWorkflow, JobReport } from './agents.ts'
 
 const corsHeaders = {
@@ -12,7 +11,6 @@ const corsHeaders = {
     'Content-Type': 'application/json',
 }
 
-// Concurrency limiter for multiple audit requests
 class ConcurrencyLimiter {
     public activeRequests = 0
     private readonly maxConcurrent = 5
@@ -46,6 +44,7 @@ interface WorkflowInput {
     input_as_text: string
     user_id: string
     job_id?: string
+    is_callback?: boolean // Flag to indicate completion of Phase 1
 }
 
 serve(async (req) => {
@@ -53,25 +52,14 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
-    let jobId: string | undefined
-
     try {
-        const body = await req.text()
-        console.log('Request received')
+        const body = await req.json() as WorkflowInput
+        const { input_as_text, user_id, job_id: providedJobId, is_callback } = body
 
-        const { input_as_text, user_id, job_id: providedJobId } = JSON.parse(body) as WorkflowInput
-        jobId = providedJobId
+        let jobId = providedJobId
 
         if (!input_as_text) throw new Error('input_as_text is required')
         if (!user_id) throw new Error('user_id is required')
-
-        const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-        if (!openaiApiKey) throw new Error('OPENAI_API_KEY not configured')
-
-        const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')
-        if (!firecrawlApiKey) throw new Error('FIRECRAWL_API_KEY not configured')
-
-        console.log('Starting audit for:', input_as_text)
 
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -79,114 +67,105 @@ serve(async (req) => {
         )
 
         // Extract URL
-        let jobTitle = input_as_text
         const urlMatch = input_as_text.match(/(https?:\/\/[^\s]+)/i)
         const targetUrl = urlMatch ? urlMatch[1] : input_as_text
 
-        try {
-            jobTitle = new URL(targetUrl).hostname
-        } catch (e) { }
+        // 1. Job Management
+        if (!jobId) {
+            let jobTitle = targetUrl
+            try { jobTitle = new URL(targetUrl).hostname } catch (e) { }
 
-        // Create or update job
-        if (jobId) {
-            await supabaseClient.from('jobs').update({ status: 'processing', status_message: 'Initializing...' }).eq('id', jobId)
-        } else {
             const { data: job, error: jobError } = await supabaseClient.from('jobs').insert({
                 user_id, title: jobTitle, url: targetUrl, status: 'pending', status_message: 'Initializing...'
             }).select().single()
 
             if (jobError) throw new Error(`Failed to create job: ${jobError.message}`)
             jobId = job.id
-            console.log(`Job created: ${jobId}`)
         }
 
-        // Check for cached data
-        let cachedRawData: any = null
-        if (jobId) {
-            const { data: currentJob } = await supabaseClient.from('jobs').select('raw_data').eq('id', jobId).single()
-            if (currentJob?.raw_data) {
-                console.log('Found cached raw_data')
-                cachedRawData = currentJob.raw_data
-            }
+        // 2. Phase Detection (Crawl vs Analysis)
+        const { data: currentJob } = await supabaseClient
+            .from('jobs')
+            .select('raw_data, crawl_status')
+            .eq('id', jobId)
+            .single()
+
+        const hasCrawlData = currentJob?.raw_data?.pages && currentJob.raw_data.pages.length > 0
+
+        if (!hasCrawlData) {
+            // PHASE 1: START CRAWL AND RETURN IMMEDIATELY
+            console.log(`[Phase 1] Triggering crawler for job ${jobId}`)
+
+            await supabaseClient.from('jobs').update({
+                status: 'processing',
+                status_message: 'Crawling website...',
+                crawl_status: 'crawling'
+            }).eq('id', jobId)
+
+            // Trigger crawler asynchronously (do not await)
+            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/crawler`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ job_id: jobId, url: targetUrl, user_id: user_id })
+            }).catch(e => console.error('Crawler trigger failed:', e))
+
+            return new Response(JSON.stringify({
+                success: true,
+                job_id: jobId,
+                phase: 'crawling',
+                message: 'Crawl phase started. Function will restart for analysis once crawl completes.'
+            }), { headers: corsHeaders })
         }
 
-        // Setup status channel
-        const statusChannel = jobId ? supabaseClient.channel(`job-status-${jobId}`) : null
+        // PHASE 2: RUN AI ANALYSIS
+        console.log(`[Phase 2] Starting AI analysis for job ${jobId}`)
 
-        const updateStatus = async (msg: string) => {
-            console.log(`[Status] ${msg}`)
-            if (!jobId) return
-            try {
+        // Background processing for Phase 2
+        const processPhase2 = (async () => {
+            await concurrencyLimiter.acquire()
+            const statusChannel = jobId ? supabaseClient.channel(`job-status-${jobId}`) : null
+
+            const updateStatus = async (msg: string) => {
+                console.log(`[Phase 2 Status] ${msg}`)
                 await supabaseClient.from('jobs').update({ status_message: msg, status: 'processing' }).eq('id', jobId)
                 if (statusChannel) {
                     await statusChannel.send({ type: 'broadcast', event: 'status_update', payload: { message: msg, status: 'processing', id: jobId } }, { httpSend: true })
                 }
-            } catch (e) {
-                console.error('Status update error:', e)
             }
-        }
-
-        // Check concurrency
-        if (concurrencyLimiter.activeRequests >= 5) {
-            return new Response(JSON.stringify({ success: false, error: 'Server busy. Please try again.' }), { status: 429, headers: corsHeaders })
-        }
-
-        // Background processing
-        const processAudit = (async () => {
-            await concurrencyLimiter.acquire()
 
             try {
-                await new Promise(r => setTimeout(r, 500))
-                await updateStatus('Initializing Audit Squad...')
+                const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+                if (!openaiApiKey) throw new Error('OPENAI_API_KEY not configured')
 
-                // Context Gathering
-                let scrapedContent = ''
-                try {
-                    await updateStatus('Crawling website...')
-                    const contextData = await executeContextGatheringAgent(targetUrl, firecrawlApiKey, updateStatus)
+                await updateStatus('Launching AI Auditors...')
 
-                    if (contextData.pages) {
-                        scrapedContent += contextData.pages.map((p: any) => `\n\n=== PAGE: ${p.title} ===\n${p.markdown || ''}`).join('\n\n')
-                    }
-                    if (contextData.contact) {
-                        scrapedContent += `\n\n=== CONTACT ===\nEmail: ${contextData.contact.email}\nPhone: ${contextData.contact.phone}\n`
-                    }
-                    if (contextData.translationStructure) {
-                        scrapedContent += `\n\n=== TRANSLATION ANALYSIS ===\n${contextData.translationStructure}\n`
-                    }
-                    console.log('Context gathered:', scrapedContent.length, 'chars')
-                } catch (error) {
-                    console.error('Context gathering failed:', error)
-                    scrapedContent = `Context gathering failed: ${(error as Error).message}`
-                    await updateStatus('Proceeding with limited data...')
+                // Format scraped content for agents
+                const contextData = currentJob.raw_data
+                let scrapedContent = contextData.pages.map((p: any) => `\n\n=== PAGE: ${p.title} (${p.pageType || 'general'}) ===\nURL: ${p.url}\n${p.markdown || ''}`).join('\n\n')
+                if (contextData.contact) {
+                    scrapedContent += `\n\n=== CONTACT ===\nEmail: ${contextData.contact.email}\nPhone: ${contextData.contact.phone}\n`
                 }
 
-                if (!scrapedContent) scrapedContent = "Could not crawl content."
-
                 // Execute Audit
-                await updateStatus('Launching AI Auditors...')
                 const auditReport = await executeAuditWorkflow(
                     targetUrl,
                     scrapedContent,
                     openaiApiKey,
                     updateStatus,
-                    cachedRawData,
+                    null, // No cached agent data initially
                     async (agentData) => {
-                        if (jobId) {
-                            await supabaseClient.from('jobs').update({ raw_data: agentData, status_message: 'Compiling report...' }).eq('id', jobId)
-                        }
+                        await supabaseClient.from('jobs').update({ status_message: 'Compiling report...' }).eq('id', jobId)
                     }
                 )
 
-                if (!auditReport || !auditReport.sections) {
-                    throw new Error('Invalid report structure')
-                }
+                if (!auditReport || !auditReport.sections) throw new Error('Invalid report structure')
 
-                console.log('Report generated, score:', auditReport.score)
-
-                // Save report
+                // Save Final Report
                 const safeScore = typeof auditReport.score === 'number' ? auditReport.score : 0
-                const { error: updateError } = await supabaseClient.from('jobs').update({
+                await supabaseClient.from('jobs').update({
                     status: 'completed',
                     report: auditReport,
                     status_message: 'Audit completed!',
@@ -194,51 +173,40 @@ serve(async (req) => {
                     score: safeScore
                 }).eq('id', jobId)
 
-                if (updateError) throw new Error(`Failed to save report: ${updateError.message}`)
-
-                console.log('Job updated successfully!')
-
                 if (statusChannel) {
                     await statusChannel.send({ type: 'broadcast', event: 'status_update', payload: { message: 'Audit completed!', status: 'completed', id: jobId } }, { httpSend: true })
                 }
 
             } catch (error) {
-                console.error('Audit error:', error)
-                if (jobId) {
-                    await supabaseClient.from('jobs').update({ status: 'failed', status_message: `Failed: ${(error as Error).message.substring(0, 100)}` }).eq('id', jobId)
-                    if (statusChannel) {
-                        await statusChannel.send({ type: 'broadcast', event: 'status_update', payload: { message: 'Failed', status: 'failed', id: jobId } }, { httpSend: true })
-                    }
-                }
+                console.error('Phase 2 error:', error)
+                await supabaseClient.from('jobs').update({
+                    status: 'failed',
+                    status_message: `Analysis failed: ${(error as Error).message.substring(0, 100)}`
+                }).eq('id', jobId)
             } finally {
                 concurrencyLimiter.release()
                 if (statusChannel) await supabaseClient.removeChannel(statusChannel)
             }
         })()
 
-        // Event handlers for debugging
-        addEventListener('beforeunload', (ev: any) => {
-            console.log('⚠️ Function shutting down:', ev?.detail?.reason || 'unknown')
-        })
-        addEventListener('unhandledrejection', (event) => {
-            console.error('❌ Unhandled rejection:', event.reason)
-        })
-
-        // Keep function alive
+        // Use waitUntil to keep function alive for Phase 2
         // @ts-ignore
         if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-            console.log('✅ Using EdgeRuntime.waitUntil')
             // @ts-ignore
-            EdgeRuntime.waitUntil(processAudit)
+            EdgeRuntime.waitUntil(processPhase2)
         } else {
-            console.log('⚠️ EdgeRuntime not available')
-            processAudit.catch(e => console.error('Audit error:', e))
+            processPhase2.catch(e => console.error('Phase 2 failure:', e))
         }
 
-        return new Response(JSON.stringify({ success: true, job_id: jobId, message: 'Audit started' }), { headers: corsHeaders })
+        return new Response(JSON.stringify({
+            success: true,
+            job_id: jobId,
+            phase: 'analyzing',
+            message: 'Analysis phase started.'
+        }), { headers: corsHeaders })
 
     } catch (error) {
-        console.error('Setup error:', error)
-        return new Response(JSON.stringify({ success: false, error: `Setup failed: ${(error as Error).message}` }), { status: 200, headers: corsHeaders })
+        console.error('Workflow error:', error)
+        return new Response(JSON.stringify({ success: false, error: (error as Error).message }), { status: 200, headers: corsHeaders })
     }
 })

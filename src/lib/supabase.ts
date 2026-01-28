@@ -20,6 +20,9 @@ export type AuditSection = {
     recommendation: string
     severity: 'high' | 'medium' | 'low'
     sourceUrl?: string
+    sourceSection?: string      // e.g., "Footer", "Contact Page", "Terms Section"
+    sourceSnippet?: string       // Exact text excerpt (30-50 chars)
+    confidence?: number          // 0-100 confidence score
     verificationNote?: string
   }>
 }

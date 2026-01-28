@@ -11,6 +11,9 @@ export interface AuditSection {
         recommendation: string
         severity: 'high' | 'medium' | 'low'
         sourceUrl?: string
+        sourceSection?: string      // e.g., "Footer", "Contact Page", "Terms Section"
+        sourceSnippet?: string       // Exact text excerpt (30-50 chars)
+        confidence?: number          // 0-100 confidence score
         verificationNote: string
     }>
 }
@@ -48,48 +51,109 @@ export interface JobReport {
     companyInfo?: CompanyInfo
 }
 
-// Agent Instructions
+// Agent Instructions - CONSERVATIVE approach to reduce false positives
 const AGENT_INSTRUCTIONS = {
     legal: `You are a German & EU Legal Specialist. Focus ONLY on missing Impressum (Imprint), AGB (Terms), and GDPR requirements.
+    
+    CRITICAL - VERIFICATION REQUIRED:
+    Before claiming ANYTHING is "missing", you MUST search for these exact terms in the content:
+    - Impressum: "Impressum", "Imprint", "Legal Notice", "Colofon", "Angaben gemäß", "Legal Info", "Verantwortlich"
+    - Terms: "AGB", "Terms", "Conditions", "Algemene Voorwaarden", "Terms of Service", "Nutzungsbedingungen"
+    - Privacy: "Datenschutz", "Privacy", "Privacybeleid", "Data Protection", "DSGVO", "GDPR"
+    
+    If ANY of these terms appear with relevant content, DO NOT report as missing.
+    If you are UNCERTAIN, set confidence below 50 and note "Could not verify presence" instead of claiming missing.
+    
     STRICT RULES:
-    1. If legal documents exist in any language (German, English, or Dutch), acknowledge them as present. DO NOT say they don't exist.
-    2. IGNORE "missing contact information" findings if Email or Phone is visible anywhere on the site.
-    3. IGNORE generic "best practices". Report ONLY if a specific legally required field is missing.
-    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal). 
+    1. If legal documents exist in ANY language (German, English, Dutch), acknowledge them as present.
+    2. IGNORE "missing contact information" if Email or Phone is visible ANYWHERE on the site.
+    3. Report ONLY verified issues with confidence >= 70.
+    
+    FOR EACH FINDING include:
+    - problem, explanation, recommendation, severity
+    - sourceUrl: Full page URL where issue exists
+    - sourceSection: Specific section (e.g., "Footer", "Legal Page", "Contact Section")
+    - sourceSnippet: Copy 30-50 chars of relevant text verbatim
+    - confidence: 0-100 (only report if >= 70)
+    - verificationNote: How you verified this finding`,
+
+    consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal) and consumer protection.
+    
+    CRITICAL - VERIFICATION REQUIRED:
+    Before claiming withdrawal/return policies are missing, search for:
+    - "Widerruf", "Withdrawal", "Return", "Retour", "Refund", "14 Tage", "14 days", "Rückgabe"
+    - Also check AGB/Terms pages as these often contain withdrawal info.
+    
     STRICT RULES:
-    1. Acknowledge Dutch or English versions as valid.
-    2. Check the provided context carefully for "AGB", "Terms", "Conditions", "Algemene Voorwaarden". If links exist, DO NOT flag them as missing.
-    3. Only report missing policies if you are 100% sure they are absent.
-    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
-    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO). 
+    1. Acknowledge Dutch, English, or German versions as VALID.
+    2. If links to AGB/Terms/Conditions exist, DO NOT flag consumer info as missing.
+    3. Only report if you are 100% certain AND confidence >= 70.
+    
+    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+
+    privacy: `You are a Data Privacy Auditor (GDPR/DSGVO).
+    
+    CRITICAL - VERIFICATION REQUIRED:
+    Before claiming privacy policy is missing, search for:
+    - "Datenschutz", "Privacy", "Privacybeleid", "Data Protection", "Cookie", "GDPR", "DSGVO"
+    - Check footer links, legal pages, and cookie banners.
+    
     STRICT RULES:
-    1. Check for Privacy Policies in German, English, or Dutch. If present -> NO ERROR.
-    2. Do NOT report "missing contact info" in the privacy policy if it exists elsewhere.
-    3. Focus ONLY on the existence of the policy and cookie banner logic.
-    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    1. If Privacy Policy exists in German, English, OR Dutch -> NO ERROR.
+    2. Do NOT report "missing contact info in privacy policy" if contact exists elsewhere.
+    3. Focus on: existence of policy, cookie consent mechanism, data controller info.
+    4. Only report verified issues with confidence >= 70.
+    
+    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+
     ux: `You are a Translation UX Specialist. Focus ONLY on how translation affects user experience.
+    
     STRICT RULES:
-    1. Report layout breaks caused by text expansion (e.g. German text breaking buttons).
-    2. Report partial translations (e.g. mixed English/German on the same page).
+    1. Report layout breaks caused by text expansion (German text breaking buttons).
+    2. Report partial translations (mixed English/German on same UI element).
     3. Report navigation menus that don't switch language correctly.
-    4. IGNORE general usability issues (colors, fonts, contrast) if they are not caused by translation.
-    For each issue: Problem, Explanation, Recommendation, Severity, sourceUrl, verificationNote.`,
+    4. IGNORE general usability issues (colors, fonts) unless caused by translation.
+    
+    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+
     company: `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue, Email, Phone, Key People.
+    
     STRICT RULES:
     1. Look at 'legal' pageType pages (Impressum/Colofon) for structured data.
-    2. If a specific field is not clearly visible, explicitely state it is "Not found". DO NOT GUESS.
-    3. Structured data needed: VAT ID, Registration Number, Managing Directors, Legal Form.`,
-    localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first. 
+    2. If a field is not CLEARLY visible, state "Not found". DO NOT GUESS.
+    3. Extract: VAT ID, Registration Number, Managing Directors, Legal Form.
+    4. For contacts: Only include if name and role are explicitly stated.`,
+
+    localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first.
+    
     STRICT RULES:
-    1. If machine translation is detected, severity is HIGH. 
-    2. Ignore minor grammar nitpicks. Focus on structural issues (e.g. English checkout on German site).
-    3. Include sourceUrl and verificationNote.`,
-    translation: `You are a Translation QA Expert. Analyze text for obvious machine translation artifacts. Report ONLY if text is clearly nonsense or wrong language. verificationNote.`
+    1. Machine translation detected -> severity HIGH.
+    2. Ignore minor grammar issues. Focus on structural problems (English checkout on German site).
+    3. Only report with confidence >= 70.
+    
+    FOR EACH FINDING include: sourceUrl, sourceSection, sourceSnippet, confidence, verificationNote.`,
+
+    translation: `You are a Translation QA Expert. Detect obvious machine translation artifacts.
+    
+    Report ONLY if text is clearly:
+    - Nonsensical or grammatically broken
+    - Wrong language for the page context
+    - Obviously auto-translated (unnatural phrasing)
+    
+    DO NOT report minor grammar issues or stylistic preferences.
+    FOR EACH FINDING include: sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`
 }
+
 
 const COMPILER_INSTRUCTION = `You are the Lead Auditor. Combine analyses into a JSON Deep Audit Report.
 YOU MUST RESPOND WITH ONLY VALID JSON.
+
+CRITICAL FILTERING RULES:
+1. EXCLUDE any finding with confidence < 70 (these are uncertain)
+2. EXCLUDE any finding that says "could not verify" or "uncertain"
+3. If an agent found that something EXISTS (e.g., "Impressum found"), do NOT include it as a finding
+4. Only include VERIFIED ISSUES, not observations
+
 Required structure:
 {
   "overview": "Executive summary...",
@@ -104,15 +168,88 @@ Required structure:
     "legal_form": "...",
     "contacts": [] 
   },
-  "sections": [{ "title": "...", "findings": [{ "problem": "...", "explanation": "...", "recommendation": "...", "severity": "high|medium|low", "sourceUrl": "...", "verificationNote": "..." }] }],
+  "sections": [{ 
+    "title": "...", 
+    "findings": [{ 
+      "problem": "...", 
+      "explanation": "...", 
+      "recommendation": "...", 
+      "severity": "high|medium|low", 
+      "sourceUrl": "...",
+      "sourceSection": "Footer|Header|Legal Page|etc",
+      "sourceSnippet": "exact 30-50 char quote",
+      "confidence": 70-100,
+      "verificationNote": "..." 
+    }] 
+  }],
   "conclusion": "...",
   "actionList": ["Action 1", "Action 2"]
 }
+
 RULES:
-1. EVERY finding MUST have all fields
+1. EVERY finding MUST have all fields including sourceSection, sourceSnippet, confidence
 2. severity MUST be high, medium, or low
-3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key. Do not return "Not found" string in the JSON.
-4. If Machine Translation detected, include "Hire professional translator" in actionList`
+3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key
+4. If Machine Translation detected, include "Hire professional translator" in actionList
+5. REMOVE findings with confidence < 70 - they should NOT appear in the final report`
+
+// Verification function to filter false positives
+// Searches legal pages for terms before reporting as missing
+function verifyMissingFindings(report: any, legalPages: any[]): any {
+    if (!report?.sections || !Array.isArray(report.sections)) return report
+
+    // Terms that indicate something is present (multi-language)
+    const presenceTerms: Record<string, string[]> = {
+        'impressum': ['impressum', 'imprint', 'legal notice', 'colofon', 'angaben gemäß', 'verantwortlich', 'legal info'],
+        'privacy': ['datenschutz', 'privacy', 'privacybeleid', 'data protection', 'gdpr', 'dsgvo', 'privacyverklaring'],
+        'terms': ['agb', 'terms', 'conditions', 'algemene voorwaarden', 'nutzungsbedingungen', 'terms of service'],
+        'withdrawal': ['widerruf', 'withdrawal', 'return', 'refund', 'retour', 'rückgabe', '14 tage', '14 days']
+    }
+
+    // Build searchable content from legal pages
+    const legalContent = legalPages
+        .map(p => (p.markdown || '').toLowerCase())
+        .join('\n')
+
+    const verifiedSections = report.sections.map((section: any) => {
+        if (!section.findings || !Array.isArray(section.findings)) return section
+
+        const verifiedFindings = section.findings.filter((finding: any) => {
+            const problem = (finding.problem || '').toLowerCase()
+
+            // Check if this is a "missing" type finding
+            const isMissingFinding =
+                problem.includes('missing') ||
+                problem.includes('not found') ||
+                problem.includes('keine') ||
+                problem.includes('fehlt') ||
+                problem.includes('absent') ||
+                problem.includes('no ')
+
+            if (!isMissingFinding) return true  // Keep non-missing findings
+
+            // Determine what item is claimed to be missing
+            let foundInContent = false
+            for (const [itemType, terms] of Object.entries(presenceTerms)) {
+                if (problem.includes(itemType) || terms.some(t => problem.includes(t))) {
+                    // Check if any of the terms exist in legal content
+                    foundInContent = terms.some(term => legalContent.includes(term))
+                    if (foundInContent) {
+                        console.log(`[Verification] FALSE POSITIVE: Claimed "${itemType}" missing but found in content`)
+                        break
+                    }
+                }
+            }
+
+            // Filter out false positives
+            return !foundInContent
+        })
+
+        return { ...section, findings: verifiedFindings }
+    })
+
+    return { ...report, sections: verifiedSections }
+}
 
 export async function executeAuditWorkflow(
     url: string,
@@ -131,20 +268,26 @@ export async function executeAuditWorkflow(
     }
 
     // Smart context truncation
-    // Smart context truncation
-    // OPTIMIZATION: Reduced from 150k to 60k to prevent hitting OpenAI TPM limits with 11 parallel agents.
-    const contextLimit = 60000
+    // INCREASED: Now safe with pre-crawled data from crawl-website function
+    const contextLimit = 120000  // 120k characters
     const safeContext: any = {
         translationStructure: fullData?.translationStructure || "Not available",
         company: fullData?.company || {},
         contact: fullData?.contact || {},
-        pages: []
+        pages: [],
+        legalPagesFound: fullData?.legalPagesFound || 0,
+        totalPages: fullData?.totalPages || 0
     }
 
     let currentLength = JSON.stringify(safeContext).length
     const sourcePages = Array.isArray(fullData?.pages) ? fullData.pages : []
 
-    for (const page of sourcePages) {
+    // Prioritize legal pages in context
+    const legalPages = sourcePages.filter((p: any) => p.pageType === 'legal')
+    const otherPages = sourcePages.filter((p: any) => p.pageType !== 'legal')
+    const orderedPages = [...legalPages, ...otherPages]
+
+    for (const page of orderedPages) {
         const pSize = (page.markdown?.length || 0)
         if (currentLength + pSize + 200 > contextLimit) break
         safeContext.pages.push(page)
@@ -152,7 +295,7 @@ export async function executeAuditWorkflow(
     }
 
     const contextString = JSON.stringify(safeContext, null, 2)
-    const baseContext = `Analyze this website: ${url}\n\n[CONTEXT START]\n${contextString}\n[CONTEXT END]`
+    const baseContext = `Analyze this website: ${url}\n\nIMPORTANT: ${safeContext.legalPagesFound} legal pages were found and included. Check legal pages carefully before claiming anything is missing.\n\n[CONTEXT START]\n${contextString}\n[CONTEXT END]`
 
     let res1, res2, res3, res4, res5, res6, res11
 
@@ -261,7 +404,12 @@ export async function executeAuditWorkflow(
             parsed = JSON.parse(fixedJson)
         }
 
-        const sections = parsed.sections || []
+        // Apply verification to filter false positives
+        const legalPages = safeContext.pages.filter((p: any) => p.pageType === 'legal')
+        const verified = verifyMissingFindings(parsed, legalPages)
+        console.log(`[Verification] Filtered false positives. Before: ${parsed.sections?.reduce((a: number, s: any) => a + (s.findings?.length || 0), 0)} findings, After: ${verified.sections?.reduce((a: number, s: any) => a + (s.findings?.length || 0), 0)} findings`)
+
+        const sections = verified.sections || []
         const totalFindings = sections.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0)
         const sectionScores = sections.map((section: any) => {
             let score = 100
@@ -276,7 +424,7 @@ export async function executeAuditWorkflow(
         let calculatedScore = sectionScores.length > 0 ? Math.round(sectionScores.reduce((a: number, b: number) => a + b, 0) / sectionScores.length) : 100
         calculatedScore = Math.max(5, calculatedScore)
 
-        return { ...parsed, issuesCount: totalFindings, score: calculatedScore }
+        return { ...verified, issuesCount: totalFindings, score: calculatedScore }
     } catch (e) {
         console.error('Failed to parse report:', e)
         throw new Error(`Failed to generate report: ${(e as Error).message}`)

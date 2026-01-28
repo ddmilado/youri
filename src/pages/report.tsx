@@ -392,15 +392,35 @@ export function ReportPage() {
                                     📋 {finding.verificationNote}
                                   </p>
                                 )}
-                                {finding.sourceUrl && (
-                                  <a
-                                    href={finding.sourceUrl.startsWith('http') ? finding.sourceUrl : `${job?.url}${finding.sourceUrl}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                                  >
-                                    🔗 View source: {finding.sourceUrl}
-                                  </a>
+                                {/* Enhanced source location display */}
+                                {(finding.sourceUrl || finding.sourceSection || finding.sourceSnippet) && (
+                                  <div className="mt-3 p-2 bg-slate-100 dark:bg-slate-800 rounded-md space-y-1.5">
+                                    {finding.sourceUrl && (
+                                      <a
+                                        href={finding.sourceUrl.startsWith('http') ? finding.sourceUrl : `${job?.url}${finding.sourceUrl}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                      >
+                                        🔗 Source: {finding.sourceUrl}
+                                      </a>
+                                    )}
+                                    {finding.sourceSection && (
+                                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        📍 Section: <span className="font-medium">{finding.sourceSection}</span>
+                                      </p>
+                                    )}
+                                    {finding.sourceSnippet && (
+                                      <p className="text-xs text-slate-500 dark:text-slate-500 italic">
+                                        "{finding.sourceSnippet}"
+                                      </p>
+                                    )}
+                                    {finding.confidence && (
+                                      <p className="text-xs text-slate-500">
+                                        🎯 Confidence: <span className={`font-medium ${finding.confidence >= 80 ? 'text-green-600' : finding.confidence >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>{finding.confidence}%</span>
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                               <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-md border border-emerald-100 dark:border-emerald-900/50">

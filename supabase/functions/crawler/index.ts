@@ -11,13 +11,21 @@ const corsHeaders = {
 }
 
 const LEGAL_PATHS = [
+    // Legal pages
     '/impressum', '/imprint', '/legal-notice', '/legal', '/legal-info',
     '/datenschutz', '/privacy', '/privacy-policy', '/data-protection',
     '/agb', '/terms', '/terms-of-service', '/terms-and-conditions', '/conditions',
     '/widerruf', '/withdrawal', '/returns', '/refund', '/retour',
     '/colofon', '/algemene-voorwaarden', '/privacybeleid', '/privacyverklaring',
-    '/kontakt', '/contact', '/about', '/uber-uns', '/about-us',
-    '/cookies', '/disclaimer'
+    '/cookies', '/disclaimer',
+    // Contact and company info pages (PRIORITY for company extraction)
+    '/kontakt', '/contact', '/contact-us', '/contactus', '/kontaktieren',
+    '/about', '/about-us', '/uber-uns', '/ueber-uns', '/over-ons',
+    '/unternehmen', '/company', '/our-company', '/our-team', '/team',
+    '/wir', '/who-we-are', '/wie-zijn-wij',
+    // Footer links often have company info
+    '/impressum-kontakt', '/legal-contact', '/company-info',
+    '/anfahrt', '/standort', '/location', '/locations'
 ]
 
 interface CrawlInput {
@@ -121,26 +129,106 @@ async function executeCrawl(targetUrl: string, apiKey: string, updateStatus: (ms
 }
 
 function formatCrawlResults(data: any[]): any {
-    const legalTerms = ['impressum', 'legal-notice', 'disclosure', 'agb', 'terms', 'privacy', 'gdpr', 'dsgvo', 'colofon', 'kontakt']
+    // Page type detection
+    const legalTerms = ['impressum', 'imprint', 'legal-notice', 'agb', 'terms', 'privacy', 'gdpr', 'dsgvo', 'colofon', 'datenschutz', 'widerruf']
+    const contactTerms = ['kontakt', 'contact', 'about', 'uber-uns', 'ueber-uns', 'over-ons', 'unternehmen', 'company', 'team', 'who-we-are']
+
     const pages = data.map((item: any) => {
         const url = (item.metadata?.sourceURL || item.url || '').toLowerCase()
         const isLegal = legalTerms.some(term => url.includes(term))
+        const isContact = contactTerms.some(term => url.includes(term))
         const markdown = item.markdown || ''
-        const contentLimit = isLegal ? 25000 : 10000
+        // Legal and contact pages get more content allowance
+        const contentLimit = isLegal ? 30000 : isContact ? 25000 : 10000
+
         return {
             title: item.metadata?.title || item.title || 'Page',
             url: item.metadata?.sourceURL || item.url || '',
             markdown: markdown.substring(0, contentLimit),
-            pageType: isLegal ? 'legal' : 'general'
+            pageType: isLegal ? 'legal' : isContact ? 'contact' : 'general'
         }
     })
-    let email = '', phone = ''
+
+    // Extract contact info from ALL pages
+    let email = '', phone = '', address = '', vatId = '', regNumber = '', companyName = ''
     for (const item of data) {
         const content = item.markdown || ''
         if (!email) { const m = content.match(/[\w.-]+@[\w.-]+\.\w+/); if (m) email = m[0] }
         if (!phone) { const m = content.match(/(\+49|0049|0|\+31|\+32|\+43)[\s\d\-\/]{8,}/); if (m) phone = m[0].trim() }
+        // VAT ID patterns (German, Dutch, Belgian, Austrian)
+        if (!vatId) {
+            const m = content.match(/(?:USt-?Id(?:Nr)?|UID|VAT|BTW(?:-?nummer)?|BTW-id)[:\s.]*([A-Z]{2}\s?\d{9,11}[A-Z]?\d?)/i)
+            if (m) vatId = m[1].replace(/\s/g, '')
+        }
+        // Registration number (Handelsregister, KvK, Belgian)
+        if (!regNumber) {
+            const m = content.match(/(?:HRB?|Handelsregister|KvK(?:-nummer)?|Kamer van Koophandel|Rechtbank|Ondernemingsnummer)[:\s]*(\d{4,10})/i)
+            if (m) regNumber = m[1]
+        }
+        // Address pattern (German 5 digits, Dutch 4 digits + 2 letters)
+        if (!address) {
+            // Dutch format: 1234 AB City or German: 12345 City
+            const m = content.match(/(\d{4,5}\s*[A-Z]{0,2}\s+[A-Za-zäöüßÄÖÜ\s-]+(?:straße|strasse|str\.|weg|platz|laan|straat|singel|gracht)?[^,\n]{0,50})/i)
+            if (m) address = m[1].trim()
+        }
+        // Company name patterns (German + Dutch legal forms)
+        if (!companyName) {
+            const m = content.match(/([A-Za-zäöüßÄÖÜ\s&.-]+(?:GmbH|AG|UG|KG|OHG|eG|BV|NV|VOF|CV|Ltd\.?|Inc\.?|LLC|Holding))/i)
+            if (m) companyName = m[1].trim()
+        }
     }
-    return { pages, contact: { email, phone }, crawledAt: new Date().toISOString(), totalPages: pages.length }
+
+    // TRANSLATION STRUCTURE ANALYSIS
+    const urls = pages.map(p => p.url.toLowerCase())
+    const allContent = pages.map(p => p.markdown).join(' ').toLowerCase()
+
+    // Check for proper language subfolders
+    const hasLanguageSubfolders = urls.some(u =>
+        /\/(de|en|nl|fr|es|it|pl|at|ch)\//.test(u) ||
+        /\/(de-de|en-gb|en-us|de-at|de-ch|nl-nl|nl-be)\//.test(u)
+    )
+
+    // Check for translation widgets
+    const hasTranslationWidget =
+        allContent.includes('gtranslate') ||
+        allContent.includes('google translate') ||
+        allContent.includes('weglot') ||
+        allContent.includes('translated by google') ||
+        allContent.includes('translate.google')
+
+    // Check for language switcher indicators
+    const hasLanguageSwitcher =
+        allContent.includes('language switcher') ||
+        allContent.includes('select language') ||
+        allContent.includes('sprache wählen') ||
+        allContent.includes('kies taal') ||
+        /class="[^"]*lang[^"]*switch/i.test(allContent) ||
+        /id="[^"]*language/i.test(allContent)
+
+    const translationStructure = {
+        hasProperLocalization: hasLanguageSubfolders,
+        suspectedMachineTranslation: hasTranslationWidget || (hasLanguageSwitcher && !hasLanguageSubfolders),
+        hasLanguageSwitcher,
+        hasTranslationWidget,
+        analysis: hasTranslationWidget
+            ? 'DETECTED: Translation widget (likely Google Translate or similar). Site may use machine translation.'
+            : hasLanguageSwitcher && !hasLanguageSubfolders
+                ? 'WARNING: Language switcher found but no language-specific URLs (/de/, /en/). Possibly using client-side translation.'
+                : hasLanguageSubfolders
+                    ? 'GOOD: Proper language subfolders detected. Site appears to have professional localization.'
+                    : 'UNKNOWN: No language structure detected. Single-language site or unable to determine.'
+    }
+
+    return {
+        pages,
+        contact: { email, phone, address },
+        company: { name: companyName, vatId, registrationNumber: regNumber },
+        crawledAt: new Date().toISOString(),
+        totalPages: pages.length,
+        legalPagesFound: pages.filter((p: any) => p.pageType === 'legal').length,
+        contactPagesFound: pages.filter((p: any) => p.pageType === 'contact').length,
+        translationStructure
+    }
 }
 
 serve(async (req) => {

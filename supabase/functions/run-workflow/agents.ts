@@ -51,9 +51,13 @@ export interface JobReport {
     companyInfo?: CompanyInfo
 }
 
-// Agent Instructions - CONSERVATIVE approach to reduce false positives
+// Agent Instructions - ULTRA-CONSERVATIVE approach: assume things exist
 const AGENT_INSTRUCTIONS = {
-    legal: `You are a German & EU Legal Specialist. Focus ONLY on missing Impressum (Imprint), AGB (Terms), and GDPR requirements.
+    legal: `You are a German & EU Legal Specialist. Focus ONLY on VERIFIED missing Impressum (Imprint), AGB (Terms), and GDPR requirements.
+    
+    ⚠️ BENEFIT OF THE DOUBT RULE:
+    99% of legitimate businesses HAVE legal pages. If you cannot find something, assume it EXISTS but wasn't crawled.
+    NEVER claim something is "missing" unless you have PROOF it doesn't exist.
     
     CRITICAL - VERIFICATION REQUIRED:
     Before claiming ANYTHING is "missing", you MUST search for these exact terms in the content:
@@ -61,50 +65,60 @@ const AGENT_INSTRUCTIONS = {
     - Terms: "AGB", "Terms", "Conditions", "Algemene Voorwaarden", "Terms of Service", "Nutzungsbedingungen"
     - Privacy: "Datenschutz", "Privacy", "Privacybeleid", "Data Protection", "DSGVO", "GDPR"
     
-    If ANY of these terms appear with relevant content, DO NOT report as missing.
-    If you are UNCERTAIN, set confidence below 50 and note "Could not verify presence" instead of claiming missing.
+    🚫 DO NOT REPORT AS MISSING:
+    - If you found a link to /impressum, /privacy, /agb, /terms, /contact - they EXIST
+    - If the content wasn't fully loaded - assume it EXISTS
+    - If you're unsure - assume it EXISTS
     
-    STRICT RULES:
-    1. If legal documents exist in ANY language (German, English, Dutch), acknowledge them as present.
-    2. IGNORE "missing contact information" if Email or Phone is visible ANYWHERE on the site.
-    3. Report ONLY verified issues with confidence >= 70.
+    ✅ ONLY REPORT if:
+    - You found a SPECIFIC INCORRECT statement (quote it exactly)
+    - You found a SPECIFIC OUTDATED reference (quote it exactly)
+    - You found content that VIOLATES a specific law (cite the law)
     
     FOR EACH FINDING include:
     - problem, explanation, recommendation, severity
     - sourceUrl: Full page URL where issue exists
-    - sourceSection: Specific section (e.g., "Footer", "Legal Page", "Contact Section")
     - sourceSnippet: Copy 30-50 chars of relevant text verbatim
-    - confidence: 0-100 (only report if >= 70)
+    - confidence: 0-100 (only report if >= 80)
     - verificationNote: How you verified this finding`,
 
     consumer: `You are a Consumer Rights Expert. Focus on Widerrufsbelehrung (Withdrawal) and consumer protection.
+    
+    ⚠️ BENEFIT OF THE DOUBT RULE:
+    99% of e-commerce sites HAVE return policies. If you can't find it, assume it EXISTS but wasn't crawled.
     
     CRITICAL - VERIFICATION REQUIRED:
     Before claiming withdrawal/return policies are missing, search for:
     - "Widerruf", "Withdrawal", "Return", "Retour", "Refund", "14 Tage", "14 days", "Rückgabe"
     - Also check AGB/Terms pages as these often contain withdrawal info.
     
-    STRICT RULES:
-    1. Acknowledge Dutch, English, or German versions as VALID.
-    2. If links to AGB/Terms/Conditions exist, DO NOT flag consumer info as missing.
-    3. Only report if you are 100% certain AND confidence >= 70.
+    🚫 DO NOT REPORT AS MISSING:
+    - If there's a link to /agb, /terms, /widerruf - assume withdrawal info EXISTS there
+    - If content wasn't fully crawled - assume it EXISTS
+    - If you're unsure - assume it EXISTS
     
-    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSnippet, confidence (only report if >= 80), verificationNote.`,
 
     privacy: `You are a Data Privacy Auditor (GDPR/DSGVO).
+    
+    ⚠️ BENEFIT OF THE DOUBT RULE:
+    99% of websites HAVE privacy policies. If you can't find it, assume it EXISTS but wasn't crawled.
     
     CRITICAL - VERIFICATION REQUIRED:
     Before claiming privacy policy is missing, search for:
     - "Datenschutz", "Privacy", "Privacybeleid", "Data Protection", "Cookie", "GDPR", "DSGVO"
     - Check footer links, legal pages, and cookie banners.
     
-    STRICT RULES:
-    1. If Privacy Policy exists in German, English, OR Dutch -> NO ERROR.
-    2. Do NOT report "missing contact info in privacy policy" if contact exists elsewhere.
-    3. Focus on: existence of policy, cookie consent mechanism, data controller info.
-    4. Only report verified issues with confidence >= 70.
+    🚫 DO NOT REPORT AS MISSING:
+    - If there's a link to /privacy, /datenschutz, /privacybeleid - assume it EXISTS
+    - If a cookie banner exists - assume privacy policy EXISTS
+    - If you're unsure - assume it EXISTS
     
-    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+    ✅ ONLY REPORT if:
+    - Privacy policy contains SPECIFIC incorrect information (quote it)
+    - Cookie consent mechanism is demonstrably broken (describe exactly how)
+    
+    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSnippet, confidence (only report if >= 80), verificationNote.`,
 
     ux: `You are a Translation UX Specialist. Focus ONLY on how translation affects user experience.
     
@@ -116,32 +130,81 @@ const AGENT_INSTRUCTIONS = {
     
     FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
 
-    company: `You are a Business Researcher. Extract Company Name, Industry, HQ, Founded, Size, Revenue, Email, Phone, Key People.
+    company: `You are a Business Intelligence Researcher. Extract ALL company information.
+    
+    📍 WHERE TO LOOK (in order of priority):
+    1. Impressum / Imprint / Colofon pages - MOST RELIABLE for German/Dutch companies
+    2. Contact / Kontakt pages - Usually has email, phone, address
+    3. About Us / Über Uns / Over Ons pages - Company story, team, founding info
+    4. Footer section - Often contains company name, address, VAT
+    5. Header/Logo area - Company name
+    
+    📋 EXTRACT THESE FIELDS (mark as null if not found):
+    - name: Full legal company name (e.g., "Mustermann GmbH")
+    - industry: What the company does
+    - email: Primary contact email
+    - phone: Phone number(s)
+    - address: Full physical address
+    - vat_id: VAT/USt-ID number (format: DE123456789, NL123456789B01)
+    - registration_number: Handelsregister/KvK number (e.g., HRB 12345, KVK 12345678)
+    - legal_form: GmbH, AG, BV, Ltd, etc.
+    - managing_directors: Names of Geschäftsführer/Directors
+    - founded: Year founded if mentioned
+    - employees: Number of employees if mentioned
+    
+    🔍 EXTRACTION PATTERNS:
+    GERMAN: "Geschäftsführer:", "Inhaber:", "Registergericht:", "Handelsregister:", "USt-IdNr:", "Telefon:"
+    DUTCH: "Directeur:", "Eigenaar:", "Bestuurder:", "KvK:", "BTW-nummer:", "Telefoon:", "Adres:"
+    ENGLISH: "Managing Director:", "CEO:", "VAT:", "Phone:", "Registration:"
+    
+    - Look for address patterns: Street + Number, Postal Code + City
+    - German postal: 5 digits (e.g., 10115 Berlin)
+    - Dutch postal: 4 digits + 2 letters (e.g., 1234 AB Amsterdam)
     
     STRICT RULES:
-    1. Look at 'legal' pageType pages (Impressum/Colofon) for structured data.
-    2. If a field is not CLEARLY visible, state "Not found". DO NOT GUESS.
-    3. Extract: VAT ID, Registration Number, Managing Directors, Legal Form.
-    4. For contacts: Only include if name and role are explicitly stated.`,
+    1. Extract EXACTLY what you find - do not infer or guess
+    2. If a field is not clearly visible, set it to null
+    3. Include the sourceUrl where you found each piece of information
+    4. Format phone numbers consistently (+49 xxx xxx)
+    
+    Return as structured JSON with all fields.`,
 
     localization: `You are a German Localization Specialist. Check TRANSLATION STRUCTURE ANALYSIS first.
     
-    STRICT RULES:
-    1. Machine translation detected -> severity HIGH.
-    2. Ignore minor grammar issues. Focus on structural problems (English checkout on German site).
-    3. Only report with confidence >= 70.
+    🔍 EXPLICIT MACHINE TRANSLATION DETECTION:
+    Look for these signs of Google Translate / Machine Translation:
+    1. Language switcher exists BUT no language subfolders (/de/, /en/, /nl/) in URLs
+    2. "Translated by Google" or "Google Translate" visible anywhere
+    3. gtranslate, weglot, or similar translation widget scripts
+    4. Mixed languages in same paragraph (half German, half English)
+    5. Unnatural German phrasing that sounds like literal English translation
     
-    FOR EACH FINDING include: sourceUrl, sourceSection, sourceSnippet, confidence, verificationNote.`,
+    If machine translation detected -> severity: HIGH, confidence: 90+
+    Include SPECIFIC evidence (quote the broken text, cite the URL pattern)
+    
+    FOR EACH FINDING include: sourceUrl, sourceSnippet (QUOTE THE BAD TEXT), confidence (90+ for machine translation), verificationNote.`,
 
-    translation: `You are a Translation QA Expert. Detect obvious machine translation artifacts.
+    translation: `You are a Translation QA Expert. BE EXPLICIT about machine translation.
     
-    Report ONLY if text is clearly:
-    - Nonsensical or grammatically broken
-    - Wrong language for the page context
-    - Obviously auto-translated (unnatural phrasing)
+    🚨 MACHINE TRANSLATION IS A CRITICAL FINDING - always report if detected:
     
-    DO NOT report minor grammar issues or stylistic preferences.
-    FOR EACH FINDING include: sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`
+    DETECTION METHODS:
+    1. URL STRUCTURE: Check if site has language switcher but NO language subfolders:
+       - Bad: example.com (same URL for all languages, using JS translation)
+       - Good: example.com/de/, example.com/en/ (proper localization)
+    2. TRANSLATION WIDGETS: Look for gtranslate, Google Translate, Weglot, etc.
+    3. TEXT QUALITY: Unnatural phrasing, impossible grammar, wrong idioms
+    4. MIXED LANGUAGES: Same UI element shows two languages
+    
+    If you detect machine translation:
+    - severity: HIGH
+    - confidence: 90-100
+    - Problem: "Website uses machine translation (Google Translate/[widget name])"
+    - Explanation: Quote specific broken text or describe URL structure issue
+    - Recommendation: "Hire professional translator for German market"
+    
+    This is NOT subject to benefit-of-the-doubt. ALWAYS REPORT machine translation.
+    FOR EACH FINDING include: sourceUrl, sourceSnippet (QUOTE THE EVIDENCE), confidence (90+ for confirmed), verificationNote.`
 }
 
 
@@ -153,6 +216,7 @@ CRITICAL FILTERING RULES:
 2. EXCLUDE any finding that says "could not verify" or "uncertain"
 3. If an agent found that something EXISTS (e.g., "Impressum found"), do NOT include it as a finding
 4. Only include VERIFIED ISSUES, not observations
+5. ALWAYS INCLUDE machine translation findings - these are critical
 
 Required structure:
 {
@@ -183,67 +247,189 @@ Required structure:
     }] 
   }],
   "conclusion": "...",
-  "actionList": ["Action 1", "Action 2"]
+  "actionList": ["Dynamically generated based on findings"]
 }
+
+🎯 DYNAMIC ACTION LIST RULES:
+Generate actionList based ONLY on the actual issues found in the report:
+
+- If Machine Translation detected → "Hire professional translator for the German market"
+- If Privacy issues found → "Update privacy policy to comply with GDPR"
+- If Impressum issues found → "Add required legal information to Impressum"
+- If Withdrawal issues found → "Add clear 14-day withdrawal notice to checkout"
+- If Cookie consent issues → "Implement GDPR-compliant cookie consent banner"
+- If Contact info missing → "Add business contact details to website"
+- If Terms issues found → "Review and update Terms and Conditions"
+
+DO NOT include generic actions. ONLY include actions that address SPECIFIC issues in the report.
+If there are no findings, actionList should be: ["No critical issues found - maintain current compliance standards"]
 
 RULES:
 1. EVERY finding MUST have all fields including sourceSection, sourceSnippet, confidence
 2. severity MUST be high, medium, or low
 3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key
-4. If Machine Translation detected, include "Hire professional translator" in actionList
-5. REMOVE findings with confidence < 70 - they should NOT appear in the final report`
+4. Machine Translation is ALWAYS high severity - never filter it out
+5. REMOVE findings with confidence < 70 EXCEPT machine translation findings`
 
-// Verification function to filter false positives
-// Searches legal pages for terms before reporting as missing
-function verifyMissingFindings(report: any, legalPages: any[]): any {
+// ENHANCED Verification function to filter false positives
+// Searches ALL crawled content for terms before reporting as missing
+function verifyMissingFindings(report: any, allPages: any[]): any {
     if (!report?.sections || !Array.isArray(report.sections)) return report
 
-    // Terms that indicate something is present (multi-language)
+    // COMPREHENSIVE terms that indicate something is present (multi-language, 100+ terms)
     const presenceTerms: Record<string, string[]> = {
-        'impressum': ['impressum', 'imprint', 'legal notice', 'colofon', 'angaben gemäß', 'verantwortlich', 'legal info'],
-        'privacy': ['datenschutz', 'privacy', 'privacybeleid', 'data protection', 'gdpr', 'dsgvo', 'privacyverklaring'],
-        'terms': ['agb', 'terms', 'conditions', 'algemene voorwaarden', 'nutzungsbedingungen', 'terms of service'],
-        'withdrawal': ['widerruf', 'withdrawal', 'return', 'refund', 'retour', 'rückgabe', '14 tage', '14 days']
+        'impressum': [
+            'impressum', 'imprint', 'legal notice', 'colofon', 'legal info',
+            'angaben gemäß', 'verantwortlich', 'betreiber', 'herausgeber',
+            'inhaltlich verantwortlich', 'seitenbetreiber', 'anbieterkennzeichnung',
+            'company information', 'site notice', 'legal disclosure', 'publisher',
+            'responsible for content', 'gemäß § 5 tmg', '§ 5 telemediengesetz',
+            'handelsregister', 'registergericht', 'ust-id', 'ust-idnr', 'vat id',
+            'geschäftsführer', 'managing director', 'ceo', 'inhaber', 'owner'
+        ],
+        'privacy': [
+            'datenschutz', 'privacy', 'privacybeleid', 'data protection', 'gdpr', 'dsgvo',
+            'privacyverklaring', 'gegevensbescherming', 'datenschutzerklärung',
+            'privacy policy', 'privacy statement', 'personenbezogene daten',
+            'verarbeitung ihrer daten', 'cookies', 'tracking', 'google analytics',
+            'data we collect', 'how we use your data', 'your privacy rights',
+            'art. 13 dsgvo', 'artikel 13', 'verantwortlicher', 'data controller',
+            'datenschutzbeauftragter', 'data protection officer', 'dpo',
+            'rechtsgrundlage', 'legal basis', 'berechtigtes interesse', 'legitimate interest'
+        ],
+        'terms': [
+            'agb', 'terms', 'conditions', 'algemene voorwaarden', 'nutzungsbedingungen',
+            'terms of service', 'terms of use', 'terms and conditions', 'tos',
+            'allgemeine geschäftsbedingungen', 'vertragsbestimmungen', 'kaufbedingungen',
+            'user agreement', 'service agreement', 'acceptable use', 'terms apply',
+            'by using this', 'geltungsbereich', 'vertragsschluss', 'lieferung'
+        ],
+        'withdrawal': [
+            'widerruf', 'withdrawal', 'return', 'refund', 'retour', 'rückgabe',
+            '14 tage', '14 days', 'widerrufsrecht', 'widerrufsbelehrung',
+            'right of withdrawal', 'cancellation right', 'herroeping', 'herroepingsrecht',
+            'rückgaberecht', 'umtausch', 'exchange', 'money back', 'geld zurück',
+            'widerrufsfrist', 'cooling off', 'retourbeleid', 'return policy'
+        ],
+        'contact': [
+            'kontakt', 'contact', 'kontaktieren', 'contact us', 'get in touch',
+            'neem contact op', 'erreichen sie uns', 'schreiben sie uns',
+            'e-mail', 'email', 'telefon', 'phone', 'tel:', 'fax', '@',
+            'anschrift', 'address', 'adresse', 'postadresse', 'standort'
+        ],
+        'shipping': [
+            'versand', 'shipping', 'delivery', 'lieferung', 'verzending',
+            'versandkosten', 'shipping costs', 'lieferzeit', 'delivery time',
+            'bezorging', 'versandarten', 'shipping methods', 'dhl', 'ups', 'dpd',
+            'kostenloser versand', 'free shipping', 'gratis verzending'
+        ],
+        'payment': [
+            'zahlung', 'payment', 'bezahlung', 'betaling', 'zahlungsarten',
+            'payment methods', 'kreditkarte', 'credit card', 'paypal', 'klarna',
+            'sofort', 'überweisung', 'bank transfer', 'rechnung', 'invoice',
+            'vorkasse', 'prepayment', 'zahlungsbedingungen', 'payment terms'
+        ],
+        'cookie': [
+            'cookie', 'cookies', 'cookie policy', 'cookie-richtlinie', 'cookiebeleid',
+            'we use cookies', 'wir verwenden cookies', 'cookie consent', 'cookie banner',
+            'essential cookies', 'notwendige cookies', 'tracking cookies', 'analytics'
+        ]
     }
 
-    // Build searchable content from legal pages
-    const legalContent = legalPages
-        .map(p => (p.markdown || '').toLowerCase())
-        .join('\n')
+    // Build searchable content from ALL pages (not just legal)
+    const allContent = allPages
+        .map(p => ((p.markdown || '') + ' ' + (p.title || '') + ' ' + (p.url || '')).toLowerCase())
+        .join('\n\n')
+
+    console.log(`[Verification] Searching ${allPages.length} pages, ${allContent.length} total characters`)
 
     const verifiedSections = report.sections.map((section: any) => {
         if (!section.findings || !Array.isArray(section.findings)) return section
 
         const verifiedFindings = section.findings.filter((finding: any) => {
             const problem = (finding.problem || '').toLowerCase()
+            const explanation = (finding.explanation || '').toLowerCase()
+            const fullText = problem + ' ' + explanation
+
+            // EXCEPTION: NEVER filter out translation/machine translation findings
+            const translationTerms = ['machine translation', 'google translate', 'gtranslate', 'weglot',
+                'translation quality', 'translated by', 'maschinenübersetzung', 'auto-translate',
+                'language switcher', 'no language subfolders', 'translation widget']
+            const isTranslationFinding = translationTerms.some(term => fullText.includes(term))
+            if (isTranslationFinding) {
+                console.log(`[Verification] KEEPING translation finding: "${problem.substring(0, 50)}..."`)
+                return true  // ALWAYS keep translation findings
+            }
 
             // Check if this is a "missing" type finding
-            const isMissingFinding =
-                problem.includes('missing') ||
-                problem.includes('not found') ||
-                problem.includes('keine') ||
-                problem.includes('fehlt') ||
-                problem.includes('absent') ||
-                problem.includes('no ')
+            const missingIndicators = [
+                'missing', 'not found', 'keine', 'fehlt', 'absent', 'no ',
+                'could not find', 'does not have', 'lacks', 'without',
+                'nicht vorhanden', 'not present', 'unavailable', 'nicht gefunden',
+                'ontbreekt', 'geen', 'niet aanwezig' // Dutch
+            ]
 
+            const isMissingFinding = missingIndicators.some(ind => fullText.includes(ind))
             if (!isMissingFinding) return true  // Keep non-missing findings
 
-            // Determine what item is claimed to be missing
+            // BENEFIT OF THE DOUBT: For common legal items, assume they exist
+            // 99% of legitimate businesses have these, so only report if we're CERTAIN they're missing
+            const commonItems = ['impressum', 'imprint', 'privacy', 'datenschutz', 'terms', 'agb', 'contact', 'kontakt', 'cookie']
+            const isAboutCommonItem = commonItems.some(item => fullText.includes(item))
+
+            if (isAboutCommonItem) {
+                // For common items: ASSUME PRESENT unless we searched and found nothing
+                // If we have less than 3 pages of content, we probably didn't crawl well - assume it's there
+                if (allPages.length < 3) {
+                    console.log(`[Verification] BENEFIT OF DOUBT: Only ${allPages.length} pages crawled, assuming common items exist`)
+                    return false  // Filter out this finding
+                }
+            }
+
+            // Check what item is claimed to be missing
             let foundInContent = false
-            for (const [itemType, terms] of Object.entries(presenceTerms)) {
-                if (problem.includes(itemType) || terms.some(t => problem.includes(t))) {
-                    // Check if any of the terms exist in legal content
-                    foundInContent = terms.some(term => legalContent.includes(term))
-                    if (foundInContent) {
-                        console.log(`[Verification] FALSE POSITIVE: Claimed "${itemType}" missing but found in content`)
+            let matchedCategory = ''
+
+            for (const [category, terms] of Object.entries(presenceTerms)) {
+                // Check if the finding is about this category
+                const isAboutThisCategory = terms.some(t => fullText.includes(t)) || fullText.includes(category)
+
+                if (isAboutThisCategory) {
+                    // Search ALL content for ANY of these terms
+                    const foundTerm = terms.find(term => allContent.includes(term))
+                    if (foundTerm) {
+                        foundInContent = true
+                        matchedCategory = category
+                        console.log(`[Verification] FALSE POSITIVE BLOCKED: Claimed "${category}" missing but found "${foundTerm}" in content`)
                         break
                     }
                 }
             }
 
-            // Filter out false positives
+            // Additional: Check for common legal document structure patterns
+            if (!foundInContent && (fullText.includes('impressum') || fullText.includes('imprint'))) {
+                // Look for typical Impressum content patterns
+                const impressumPatterns = [
+                    /\bgmbh\b/, /\bkg\b/, /\bag\b/, /\bltd\b/, /\bllc\b/, /\bsrl\b/, /\bbv\b/,
+                    /geschäftsführer/i, /managing director/i, /ceo/i,
+                    /handelsregister/i, /hrb\s*\d+/i, /commercial register/i,
+                    /ust-id/i, /vat/i, /btw/i, /ust\.?\s*id/i,
+                    /\d{5}\s+[a-zäöü]+/i,  // German postal code + city
+                    /\+49|\+31|\+32|\+43/   // Phone numbers
+                ]
+                if (impressumPatterns.some(pattern => pattern.test(allContent))) {
+                    foundInContent = true
+                    console.log(`[Verification] FALSE POSITIVE BLOCKED: Found Impressum-like content patterns`)
+                }
+            }
+
             return !foundInContent
         })
+
+        const removed = section.findings.length - verifiedFindings.length
+        if (removed > 0) {
+            console.log(`[Verification] Removed ${removed} false positives from section "${section.title}"`)
+        }
 
         return { ...section, findings: verifiedFindings }
     })
@@ -404,13 +590,105 @@ export async function executeAuditWorkflow(
             parsed = JSON.parse(fixedJson)
         }
 
-        // Apply verification to filter false positives
-        const legalPages = safeContext.pages.filter((p: any) => p.pageType === 'legal')
-        const verified = verifyMissingFindings(parsed, legalPages)
+        // Apply verification to filter false positives - search ALL pages
+        const verified = verifyMissingFindings(parsed, safeContext.pages)
         console.log(`[Verification] Filtered false positives. Before: ${parsed.sections?.reduce((a: number, s: any) => a + (s.findings?.length || 0), 0)} findings, After: ${verified.sections?.reduce((a: number, s: any) => a + (s.findings?.length || 0), 0)} findings`)
 
         const sections = verified.sections || []
         const totalFindings = sections.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0)
+
+        // GENERATE DYNAMIC ACTION LIST based on actual findings
+        const allFindingsText = sections
+            .flatMap((s: any) => (s.findings || []).map((f: any) =>
+                `${f.problem || ''} ${f.explanation || ''} ${f.recommendation || ''}`.toLowerCase()
+            ))
+            .join(' ')
+
+        const dynamicActions: string[] = []
+
+        // Only add actions if corresponding issues exist
+        if (allFindingsText.includes('machine translation') ||
+            allFindingsText.includes('google translate') ||
+            allFindingsText.includes('gtranslate') ||
+            allFindingsText.includes('translation quality')) {
+            dynamicActions.push('Hire professional translator for the German market')
+        }
+        if (allFindingsText.includes('privacy') || allFindingsText.includes('datenschutz') || allFindingsText.includes('gdpr') || allFindingsText.includes('dsgvo')) {
+            dynamicActions.push('Update privacy policy to comply with GDPR')
+        }
+        if (allFindingsText.includes('impressum') || allFindingsText.includes('imprint') || allFindingsText.includes('legal notice')) {
+            dynamicActions.push('Add required legal information to Impressum')
+        }
+        if (allFindingsText.includes('withdrawal') || allFindingsText.includes('widerruf') || allFindingsText.includes('return policy')) {
+            dynamicActions.push('Add clear 14-day withdrawal notice to checkout')
+        }
+        if (allFindingsText.includes('cookie') || allFindingsText.includes('consent')) {
+            dynamicActions.push('Implement GDPR-compliant cookie consent banner')
+        }
+        if (allFindingsText.includes('contact') || allFindingsText.includes('kontakt') || allFindingsText.includes('email') || allFindingsText.includes('phone')) {
+            dynamicActions.push('Add business contact details to website')
+        }
+        if (allFindingsText.includes('terms') || allFindingsText.includes('agb') || allFindingsText.includes('conditions')) {
+            dynamicActions.push('Review and update Terms and Conditions')
+        }
+
+        // If no specific actions, provide default based on score
+        if (dynamicActions.length === 0) {
+            dynamicActions.push('No critical issues found - maintain current compliance standards')
+        }
+
+        // Replace AI-generated actionList with our dynamic one
+        verified.actionList = dynamicActions
+        console.log(`[ActionList] Generated ${dynamicActions.length} actions based on findings:`, dynamicActions)
+
+        // GENERATE ACCURATE OVERVIEW based on actual findings
+        const highSeverityCount = sections.reduce((acc: number, s: any) =>
+            acc + (s.findings || []).filter((f: any) => f.severity?.toLowerCase() === 'high').length, 0)
+        const mediumSeverityCount = sections.reduce((acc: number, s: any) =>
+            acc + (s.findings || []).filter((f: any) => f.severity?.toLowerCase() === 'medium').length, 0)
+        const lowSeverityCount = sections.reduce((acc: number, s: any) =>
+            acc + (s.findings || []).filter((f: any) => f.severity?.toLowerCase() === 'low').length, 0)
+
+        // Build overview based on actual findings
+        let dynamicOverview = ''
+        if (totalFindings === 0) {
+            dynamicOverview = `This website audit found no critical compliance issues. The site appears to meet German and EU legal requirements for e-commerce. Regular monitoring is recommended to maintain compliance.`
+        } else {
+            const issuesSummary: string[] = []
+
+            // Describe what was found
+            if (allFindingsText.includes('machine translation') || allFindingsText.includes('google translate')) {
+                issuesSummary.push('machine translation detected')
+            }
+            if (allFindingsText.includes('privacy') || allFindingsText.includes('datenschutz')) {
+                issuesSummary.push('privacy policy concerns')
+            }
+            if (allFindingsText.includes('impressum') || allFindingsText.includes('imprint')) {
+                issuesSummary.push('Impressum issues')
+            }
+            if (allFindingsText.includes('withdrawal') || allFindingsText.includes('widerruf')) {
+                issuesSummary.push('withdrawal policy concerns')
+            }
+            if (allFindingsText.includes('cookie')) {
+                issuesSummary.push('cookie consent issues')
+            }
+
+            const severityText = highSeverityCount > 0
+                ? `${highSeverityCount} high-severity issue${highSeverityCount > 1 ? 's' : ''}`
+                : mediumSeverityCount > 0
+                    ? `${mediumSeverityCount} medium-severity issue${mediumSeverityCount > 1 ? 's' : ''}`
+                    : `${lowSeverityCount} minor issue${lowSeverityCount > 1 ? 's' : ''}`
+
+            dynamicOverview = `This audit identified ${totalFindings} finding${totalFindings > 1 ? 's' : ''}, including ${severityText}. `
+            if (issuesSummary.length > 0) {
+                dynamicOverview += `Key areas requiring attention: ${issuesSummary.join(', ')}. `
+            }
+            dynamicOverview += `Review the detailed findings below and address high-priority items first.`
+        }
+
+        verified.overview = dynamicOverview
+        console.log(`[Overview] Generated based on ${totalFindings} findings`)
+
         const sectionScores = sections.map((section: any) => {
             let score = 100
             section.findings?.forEach((f: any) => {

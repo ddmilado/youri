@@ -120,15 +120,7 @@ const AGENT_INSTRUCTIONS = {
     
     FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSnippet, confidence (only report if >= 80), verificationNote.`,
 
-    ux: `You are a Translation UX Specialist. Focus ONLY on how translation affects user experience.
-    
-    STRICT RULES:
-    1. Report layout breaks caused by text expansion (German text breaking buttons).
-    2. Report partial translations (mixed English/German on same UI element).
-    3. Report navigation menus that don't switch language correctly.
-    4. IGNORE general usability issues (colors, fonts) unless caused by translation.
-    
-    FOR EACH FINDING include: problem, explanation, recommendation, severity, sourceUrl, sourceSection, sourceSnippet, confidence (0-100), verificationNote.`,
+
 
     company: `You are a Business Intelligence Researcher. Extract ALL company information.
     
@@ -184,27 +176,25 @@ const AGENT_INSTRUCTIONS = {
     
     FOR EACH FINDING include: sourceUrl, sourceSnippet (QUOTE THE BAD TEXT), confidence (90+ for machine translation), verificationNote.`,
 
-    translation: `You are a Translation QA Expert. BE EXPLICIT about machine translation.
+    translation: `You are a Translation QA Expert. Determine if the site uses proper Human Translation or Machine Translation.
     
-    🚨 MACHINE TRANSLATION IS A CRITICAL FINDING - always report if detected:
+    ANALYSIS REQUIRED - YOU MUST DETERMINE STATUS:
     
-    DETECTION METHODS:
-    1. URL STRUCTURE: Check if site has language switcher but NO language subfolders:
-       - Bad: example.com (same URL for all languages, using JS translation)
-       - Good: example.com/de/, example.com/en/ (proper localization)
-    2. TRANSLATION WIDGETS: Look for gtranslate, Google Translate, Weglot, etc.
-    3. TEXT QUALITY: Unnatural phrasing, impossible grammar, wrong idioms
-    4. MIXED LANGUAGES: Same UI element shows two languages
+    1. MACHINE TRANSLATION SIGNS (Negative):
+       - URL Structure: Same URL for all languages, or uses query params (?lang=de) instead of subfolders
+       - Widgets: Google Translate, GTranslate, Weglot widgets visible
+       - Content: Mixed languages, unnatural phrasing, "Translated by Google" text
     
-    If you detect machine translation:
-    - severity: HIGH
-    - confidence: 90-100
-    - Problem: "Website uses machine translation (Google Translate/[widget name])"
-    - Explanation: Quote specific broken text or describe URL structure issue
-    - Recommendation: "Hire professional translator for German market"
+    2. HUMAN TRANSLATION SIGNS (Positive):
+       - URL Structure: Clear subfolders (/de/, /en/, /nl/) or subdomains (de.example.com)
+       - Content: High-quality, idiomatic German
+       - Structure: Different DOM structure per language (not just text replacement)
     
-    This is NOT subject to benefit-of-the-doubt. ALWAYS REPORT machine translation.
-    FOR EACH FINDING include: sourceUrl, sourceSnippet (QUOTE THE EVIDENCE), confidence (90+ for confirmed), verificationNote.`
+    REPORTING:
+    - If Machine Translation (Confidence 90%+): Severity HIGH, Problem "Probable Machine Translation Detected", Explain WHY (framing it as a high probability).
+    - If Human Translation: Report "Human Translation Verified" as a finding with Low severity (positive finding), explaining validation.
+    
+    FOR EACH FINDING include: sourceUrl, sourceSnippet, confidence, verificationNote.`
 }
 
 
@@ -212,11 +202,11 @@ const COMPILER_INSTRUCTION = `You are the Lead Auditor. Combine analyses into a 
 YOU MUST RESPOND WITH ONLY VALID JSON.
 
 CRITICAL FILTERING RULES:
-1. EXCLUDE any finding with confidence < 70 (these are uncertain)
+1. EXCLUDE any finding with confidence < 95 (these are uncertain)
 2. EXCLUDE any finding that says "could not verify" or "uncertain"
 3. If an agent found that something EXISTS (e.g., "Impressum found"), do NOT include it as a finding
 4. Only include VERIFIED ISSUES, not observations
-5. ALWAYS INCLUDE machine translation findings - these are critical
+5. ALWAYS INCLUDE translation findings (Machine OR Human) - these are critical details
 
 Required structure:
 {
@@ -246,6 +236,11 @@ Required structure:
       "verificationNote": "..." 
     }] 
   }],
+  "translationAnalysis": {
+      "status": "Machine Translation Detected | Human Translation Verified | Unknown",
+      "reasoning": "Explain WHY (e.g. 'Found Google Translate widget', 'Verified proper /de/ subfolder structure', 'Mixed mixed languages detected')",
+      "evidence": "Specific evidence found (URLs, snippets, widget names)"
+  },
   "conclusion": "...",
   "actionList": ["Dynamically generated based on findings"]
 }
@@ -269,7 +264,8 @@ RULES:
 2. severity MUST be high, medium, or low
 3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key
 4. Machine Translation is ALWAYS high severity - never filter it out
-5. REMOVE findings with confidence < 70 EXCEPT machine translation findings`
+5. REMOVE findings with confidence < 95 EXCEPT translation findings (Machine >= 90 or Human Verified)
+6. ALWAYS fill the "translationAnalysis" object - it is MANDATORY`
 
 // ENHANCED Verification function to filter false positives
 // Searches ALL crawled content for terms before reporting as missing
@@ -354,11 +350,12 @@ function verifyMissingFindings(report: any, allPages: any[]): any {
             // EXCEPTION: NEVER filter out translation/machine translation findings
             const translationTerms = ['machine translation', 'google translate', 'gtranslate', 'weglot',
                 'translation quality', 'translated by', 'maschinenübersetzung', 'auto-translate',
-                'language switcher', 'no language subfolders', 'translation widget']
+                'language switcher', 'no language subfolders', 'translation widget', 'human translation',
+                'proper localization', 'native speaker']
             const isTranslationFinding = translationTerms.some(term => fullText.includes(term))
             if (isTranslationFinding) {
                 console.log(`[Verification] KEEPING translation finding: "${problem.substring(0, 50)}..."`)
-                return true  // ALWAYS keep translation findings
+                return true  // ALWAYS keep translation findings (good or bad)
             }
 
             // Check if this is a "missing" type finding
@@ -419,7 +416,7 @@ function verifyMissingFindings(report: any, allPages: any[]): any {
                 ]
                 if (impressumPatterns.some(pattern => pattern.test(allContent))) {
                     foundInContent = true
-                    console.log(`[Verification] FALSE POSITIVE BLOCKED: Found Impressum-like content patterns`)
+                    console.log(`[Verification] FALSE POSITIVE BLOCKED: Found Impressum - like content patterns`)
                 }
             }
 
@@ -481,7 +478,7 @@ export async function executeAuditWorkflow(
     }
 
     const contextString = JSON.stringify(safeContext, null, 2)
-    const baseContext = `Analyze this website: ${url}\n\nIMPORTANT: ${safeContext.legalPagesFound} legal pages were found and included. Check legal pages carefully before claiming anything is missing.\n\n[CONTEXT START]\n${contextString}\n[CONTEXT END]`
+    const baseContext = `Analyze this website: ${url} \n\nIMPORTANT: ${safeContext.legalPagesFound} legal pages were found and included.Check legal pages carefully before claiming anything is missing.\n\n[CONTEXT START]\n${contextString} \n[CONTEXT END]`
 
     let res1, res2, res3, res4, res5, res6, res11
 
@@ -502,28 +499,27 @@ export async function executeAuditWorkflow(
                 // Use gpt-4o-mini for speed and reliability, with 0 retries to prevent timeouts
                 const res = await callOpenAI(apiKey, instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5, 4000, 0)
                 agentsFinished++
-                console.log(`[Agent ${name}] Done (${res.length} chars)`)
+                console.log(`[Agent ${name}]Done(${res.length} chars)`)
                 return res || `Agent ${name}: No issues found.`
             } catch (e) {
                 agentsFinished++
-                console.error(`[Agent ${name}] Failed:`, e)
+                console.error(`[Agent ${name}]Failed: `, e)
                 return `Agent ${name}: Analysis unavailable.`
             }
         }
 
         const updateProgress = async () => {
-            while (agentsFinished < 7) {
-                await updateStatus(`Audit Swarm Analyzing: ${agentsFinished}/7 Agents Complete...`)
+            while (agentsFinished < 6) {
+                await updateStatus(`Audit Swarm Analyzing: ${agentsFinished}/6 Agents Complete...`)
                 await new Promise(r => setTimeout(r, 1500))
             }
         }
 
         // Execute ALL agents in parallel to maximize speed within the wall-clock limit
-        const [r1, r2, r3, r4, r5, r6, r11] = await Promise.all([
+        const [r1, r2, r3, r5, r6, r11] = await Promise.all([
             callAgent(AGENT_INSTRUCTIONS.legal, 'Legal'),
             callAgent(AGENT_INSTRUCTIONS.consumer, 'Consumer'),
             callAgent(AGENT_INSTRUCTIONS.privacy, 'Privacy'),
-            callAgent(AGENT_INSTRUCTIONS.ux, 'UX'),
             callAgent(AGENT_INSTRUCTIONS.company, 'Company'),
             callAgent(AGENT_INSTRUCTIONS.localization, 'Localization'),
             callAgent(AGENT_INSTRUCTIONS.translation, 'Translation'),
@@ -531,12 +527,12 @@ export async function executeAuditWorkflow(
         ])
 
         // Map results variables
-        res1 = r1; res2 = r2; res3 = r3; res4 = r4; res5 = r5
+        res1 = r1; res2 = r2; res3 = r3; res5 = r5
         res6 = r6; res11 = r11
     }
 
     const allAgentData = {
-        legal: res1, consumer: res2, privacy: res3, ux: res4, company: res5,
+        legal: res1, consumer: res2, privacy: res3, company: res5,
         localization: res6, translationQuality: res11
     }
 
@@ -552,7 +548,6 @@ export async function executeAuditWorkflow(
         { role: 'assistant', content: `Legal: ${truncate(safeRes(res1))}` },
         { role: 'assistant', content: `Consumer: ${truncate(safeRes(res2))}` },
         { role: 'assistant', content: `Privacy: ${truncate(safeRes(res3))}` },
-        { role: 'assistant', content: `UX: ${truncate(safeRes(res4))}` },
         { role: 'assistant', content: `Company: ${truncate(safeRes(res5))}` },
         { role: 'assistant', content: `Localization: ${truncate(safeRes(res6))}` },
         { role: 'assistant', content: `Translation: ${truncate(safeRes(res11))}` }
@@ -597,7 +592,9 @@ export async function executeAuditWorkflow(
         const sections = verified.sections || []
         const totalFindings = sections.reduce((acc: number, s: any) => acc + (s.findings?.length || 0), 0)
 
-        // GENERATE DYNAMIC ACTION LIST based on actual findings
+
+
+        // GENERATE DYNAMIC ACTION LIST based on actual findings AND translation analysis
         const allFindingsText = sections
             .flatMap((s: any) => (s.findings || []).map((f: any) =>
                 `${f.problem || ''} ${f.explanation || ''} ${f.recommendation || ''}`.toLowerCase()
@@ -606,11 +603,15 @@ export async function executeAuditWorkflow(
 
         const dynamicActions: string[] = []
 
+        // CHECK TRANSLATION ANALYSIS STATUS
+        const translationStatus = verified.translationAnalysis?.status?.toLowerCase() || ''
+        const machineTranslationDetected = translationStatus.includes('machine translation') ||
+            translationStatus.includes('detected') ||
+            allFindingsText.includes('machine translation') ||
+            allFindingsText.includes('google translate')
+
         // Only add actions if corresponding issues exist
-        if (allFindingsText.includes('machine translation') ||
-            allFindingsText.includes('google translate') ||
-            allFindingsText.includes('gtranslate') ||
-            allFindingsText.includes('translation quality')) {
+        if (machineTranslationDetected) {
             dynamicActions.push('Hire professional translator for the German market')
         }
         if (allFindingsText.includes('privacy') || allFindingsText.includes('datenschutz') || allFindingsText.includes('gdpr') || allFindingsText.includes('dsgvo')) {
@@ -651,13 +652,13 @@ export async function executeAuditWorkflow(
 
         // Build overview based on actual findings
         let dynamicOverview = ''
-        if (totalFindings === 0) {
+        if (totalFindings === 0 && !machineTranslationDetected) {
             dynamicOverview = `This website audit found no critical compliance issues. The site appears to meet German and EU legal requirements for e-commerce. Regular monitoring is recommended to maintain compliance.`
         } else {
             const issuesSummary: string[] = []
 
             // Describe what was found
-            if (allFindingsText.includes('machine translation') || allFindingsText.includes('google translate')) {
+            if (machineTranslationDetected) {
                 issuesSummary.push('machine translation detected')
             }
             if (allFindingsText.includes('privacy') || allFindingsText.includes('datenschutz')) {
@@ -683,7 +684,22 @@ export async function executeAuditWorkflow(
             if (issuesSummary.length > 0) {
                 dynamicOverview += `Key areas requiring attention: ${issuesSummary.join(', ')}. `
             }
-            dynamicOverview += `Review the detailed findings below and address high-priority items first.`
+            if (verified.translationAnalysis?.status) {
+                dynamicOverview += ` Translation Status: ${verified.translationAnalysis.status}.`
+            }
+            dynamicOverview += ` Review the detailed findings below.`
+        }
+
+        // ALWAYS Append Translation Analysis to Overview
+        if (verified.translationAnalysis?.status && verified.translationAnalysis?.reasoning) {
+            const status = verified.translationAnalysis.status;
+            const reasoning = verified.translationAnalysis.reasoning;
+
+            // Format: "Translation Analysis: [Status] - [Reasoning]"
+            // Only add if not already redundant
+            if (!dynamicOverview.includes(reasoning)) {
+                dynamicOverview += `\n\nTranslation Analysis: ${status}. ${reasoning}`
+            }
         }
 
         verified.overview = dynamicOverview
@@ -701,6 +717,21 @@ export async function executeAuditWorkflow(
         })
         let calculatedScore = sectionScores.length > 0 ? Math.round(sectionScores.reduce((a: number, b: number) => a + b, 0) / sectionScores.length) : 100
         calculatedScore = Math.max(5, calculatedScore)
+
+        // GENERATE ACCURATE CONCLUSION based on findings and score
+        let dynamicConclusion = ''
+        if (totalFindings === 0) {
+            dynamicConclusion = `This website demonstrates strong compliance with German and EU e-commerce regulations. No critical issues were identified during this audit. Continue maintaining current legal standards and perform periodic reviews to ensure ongoing compliance.`
+        } else if (calculatedScore >= 80) {
+            dynamicConclusion = `Overall, this website shows good compliance with most German and EU requirements. ${totalFindings} minor issue${totalFindings > 1 ? 's were' : ' was'} identified that should be addressed to improve compliance. The site is generally well-prepared for the German market.`
+        } else if (calculatedScore >= 60) {
+            dynamicConclusion = `This website has several compliance gaps that require attention. ${highSeverityCount > 0 ? `${highSeverityCount} high-priority issue${highSeverityCount > 1 ? 's' : ''} should be addressed immediately. ` : ''}We recommend reviewing the findings and implementing the suggested actions to improve market readiness.`
+        } else {
+            dynamicConclusion = `This audit identified significant compliance issues that need urgent attention before targeting the German market. ${highSeverityCount > 0 ? `${highSeverityCount} critical issue${highSeverityCount > 1 ? 's require' : ' requires'} immediate action. ` : ''}We strongly recommend addressing all high and medium severity findings before launch.`
+        }
+
+        verified.conclusion = dynamicConclusion
+        console.log(`[Conclusion] Generated based on score ${calculatedScore} and ${totalFindings} findings`)
 
         return { ...verified, issuesCount: totalFindings, score: calculatedScore }
     } catch (e) {

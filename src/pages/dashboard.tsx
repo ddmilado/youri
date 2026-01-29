@@ -155,7 +155,7 @@ export function DashboardPage() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Link to="/new">
+          <Link to="/new" className="hidden md:block">
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap">
               <Plus className="mr-1 h-3.5 w-3.5 md:mr-2 md:h-4 md:w-4" />
               New Analysis
@@ -167,7 +167,7 @@ export function DashboardPage() {
       {/* Main Content Area - Scrollable */}
       <main className="flex-1 overflow-auto p-6">
         {/* KPI Cards - Dense Row */}
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mb-6">
           <Card className="border-slate-200 dark:border-slate-700">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Leads</CardTitle>

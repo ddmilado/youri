@@ -245,7 +245,7 @@ export function ReportPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
 
       {/* Top Navigation */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-4 md:px-6 h-auto min-h-[4rem] flex flex-col md:flex-row items-center justify-between py-3 gap-3">
+      <header className="sticky top-14 lg:top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-4 md:px-6 h-auto min-h-[4rem] flex flex-col md:flex-row items-center justify-between py-3 gap-3 transition-all">
         <div className="flex items-center gap-3 w-full md:w-auto">
           {user && (
             <Link to="/dashboard">

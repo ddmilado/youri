@@ -4,6 +4,53 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+// --- CONSOLIDATED HELPERS (For manual copy-pasting) ---
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'text-embedding-3-large',
+            input: text.replace(/\n/g, ' '),
+            dimensions: 1536
+        })
+    })
+    if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`OpenAI Embedding Error: ${error}`)
+    }
+    const data = await response.json()
+    return data.data[0].embedding
+}
+
+function chunkText(text: string, maxChars: number = 1000): string[] {
+    if (!text || text.length === 0) return []
+    const chunks: string[] = []
+    let currentChunk = ''
+    const paragraphs = text.split(/\n\s*\n/)
+    for (const paragraph of paragraphs) {
+        if ((currentChunk.length + paragraph.length) > maxChars && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim()); currentChunk = ''
+        }
+        if (paragraph.length > maxChars) {
+            const sentences = paragraph.match(/[^.!?]+[.!?]+|\s+/g) || [paragraph]
+            for (const sentence of sentences) {
+                if ((currentChunk.length + sentence.length) > maxChars && currentChunk.length > 0) {
+                    chunks.push(currentChunk.trim()); currentChunk = ''
+                }
+                currentChunk += sentence
+            }
+        } else {
+            currentChunk += paragraph + '\n\n'
+        }
+    }
+    if (currentChunk.trim().length > 0) chunks.push(currentChunk.trim())
+    return chunks
+}
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -90,7 +137,7 @@ async function executeCrawl(targetUrl: string, apiKey: string, updateStatus: (ms
             const startResponse = await fetch('https://api.firecrawl.dev/v2/crawl', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: targetUrl, limit: 20, scrapeOptions: { formats: ['markdown', 'html'] } })
+                body: JSON.stringify({ url: targetUrl, limit: 50, scrapeOptions: { formats: ['markdown', 'html'] } })
             })
             if (!startResponse.ok) return []
             const startData = await startResponse.json()
@@ -234,31 +281,141 @@ function formatCrawlResults(data: any[]): any {
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
     try {
+        console.log('[Crawler] Start processing request...')
         const body = await req.json() as CrawlInput
         const { job_id, url, user_id, force_recrawl } = body
-        const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+
+        console.log(`[Crawler] Job: ${job_id}, URL: ${url}, Force: ${force_recrawl}`)
+
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY') || ''
+        const openaiKey = Deno.env.get('OPENAI_API_KEY') || ''
+
+        console.log(`[Crawler] Env Check - URL: ${!!supabaseUrl}, Key: ${!!supabaseKey}, Firecrawl: ${!!firecrawlKey}, OpenAI: ${!!openaiKey}`)
+
+        if (!openaiKey) {
+            console.error('[Crawler] CRITICAL: OPENAI_API_KEY is missing. RAG will fail.')
+        }
+
+        const supabaseClient = createClient(supabaseUrl, supabaseKey)
         const updateStatus = async (msg: string) => {
+            console.log(`[Crawler Status Update] ${msg}`)
             await supabaseClient.from('jobs').update({ status_message: msg, crawl_status: 'crawling' }).eq('id', job_id)
         }
 
-        await updateStatus('Phase 1: Deep Crawl started...')
-        const crawlData = await executeCrawl(url, Deno.env.get('FIRECRAWL_API_KEY') || '', updateStatus)
+        let crawlData: any = null
 
-        await supabaseClient.from('jobs').update({
+        // 1. DATA REUSE STRATEGY
+        if (!force_recrawl) {
+            console.log('[Crawler] Checking for existing data...')
+            const { data: existingJob, error: checkError } = await supabaseClient
+                .from('jobs')
+                .select('id, raw_data')
+                .eq('url', url) // Match exact URL
+                .eq('crawl_status', 'completed')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+            if (checkError) console.error('[Crawler] Reuse check error:', checkError)
+
+            if (existingJob && existingJob.raw_data) {
+                console.log(`[Crawler] Found existing job: ${existingJob.id}`)
+                const { count } = await supabaseClient
+                    .from('document_chunks')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('job_id', existingJob.id)
+
+                console.log(`[Crawler] Existing chunks count: ${count}`)
+
+                if (count && count > 0) {
+                    await updateStatus('Reuse Strategy: Found existing knowledge base. Linking...')
+                    crawlData = existingJob.raw_data
+
+                    // Link old chunks to new job_id (Super fast, keeps RAG working)
+                    const { data: oldChunks } = await supabaseClient
+                        .from('document_chunks')
+                        .select('url, content, metadata, embedding')
+                        .eq('job_id', existingJob.id)
+
+                    if (oldChunks && oldChunks.length > 0) {
+                        const newChunks = oldChunks.map((c: any) => ({ ...c, job_id }))
+                        const { error: copyError } = await supabaseClient.from('document_chunks').insert(newChunks)
+                        if (copyError) console.error('[Crawler] Chunk copy error:', copyError)
+                        else console.log(`[Crawler] Successfully copied ${newChunks.length} chunks`)
+                    }
+                }
+            } else {
+                console.log('[Crawler] No reusable data found.')
+            }
+        }
+
+        // 2. FRESH CRAWL & INGESTION (Only if no reuse)
+        if (!crawlData) {
+            await updateStatus('Phase 1: Deep Crawl started...')
+            crawlData = await executeCrawl(url, firecrawlKey, updateStatus)
+            console.log(`[Crawler] Crawl complete. Raw pages: ${crawlData?.pages?.length || 0}`)
+
+            await updateStatus('RAG: Building knowledge base for vector search...')
+            const allPages = crawlData.pages || []
+
+            let chunkCount = 0
+            for (const page of allPages) {
+                console.log(`[Crawler] Processing page: ${page.url}`)
+                const chunks = chunkText(page.markdown || '', 1000)
+                if (chunks.length === 0) continue
+
+                const inserts = []
+                for (const chunk of chunks) {
+                    try {
+                        const embedding = await generateEmbedding(chunk, openaiKey)
+                        inserts.push({
+                            job_id: job_id,
+                            url: page.url,
+                            content: chunk,
+                            metadata: { title: page.title, pageType: page.pageType },
+                            embedding: embedding
+                        })
+                    } catch (e) {
+                        console.error(`[Crawler] Error embedding chunk for ${page.url}:`, e)
+                    }
+                }
+
+                if (inserts.length > 0) {
+                    const { error } = await supabaseClient.from('document_chunks').insert(inserts)
+                    if (error) console.error('[Crawler] Supabase Ingestion Error:', error)
+                    else {
+                        console.log(`[Crawler] Ingested ${inserts.length} chunks for ${page.url}`)
+                        chunkCount += inserts.length
+                    }
+                }
+            }
+            await updateStatus(`RAG: Ingested ${chunkCount} chunks.`)
+        }
+
+        // 3. FINALIZE PHASE 1
+        console.log('[Crawler] Finalizing Phase 1...')
+        const { error: updateError } = await supabaseClient.from('jobs').update({
             raw_data: crawlData,
             crawl_status: 'completed',
-            status_message: 'Crawl finished. Re-triggering analysis...'
+            status_message: 'Crawl finished. Analysis starting...'
         }).eq('id', job_id)
 
-        // PHASE 2 CALL BACK
+        if (updateError) console.error('[Crawler] Failed to update job status:', updateError)
+
+        // TRIGGER PHASE 2
+        console.log('[Crawler] Triggering Phase 2...')
         fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/run-workflow`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ job_id, input_as_text: url, user_id, is_callback: true })
         }).catch(e => console.error('Callback failed:', e))
 
-        return new Response(JSON.stringify({ success: true, message: 'Phase 1 complete. Phase 2 triggered.' }), { headers: corsHeaders })
+        console.log('[Crawler] Done.')
+        return new Response(JSON.stringify({ success: true, message: 'Phase 1 complete.' }), { headers: corsHeaders })
     } catch (error) {
+        console.error('[Crawler] Fatal Error:', error)
         return new Response(JSON.stringify({ success: false, error: (error as Error).message }), { status: 500, headers: corsHeaders })
     }
 })

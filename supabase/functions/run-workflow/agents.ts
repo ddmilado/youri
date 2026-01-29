@@ -1,6 +1,29 @@
 // AI Agent instructions and workflow execution
 
 import { callOpenAI } from './openai.ts'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+// --- CONSOLIDATED HELPERS (For manual copy-pasting) ---
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'text-embedding-3-large',
+            input: text.replace(/\n/g, ' '),
+            dimensions: 1536
+        })
+    })
+    if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`OpenAI Embedding Error: ${error}`)
+    }
+    const data = await response.json()
+    return data.data[0].embedding
+}
 
 // Type definitions
 export interface AuditSection {
@@ -122,6 +145,8 @@ const AGENT_INSTRUCTIONS = {
 
 
 
+
+
     company: `You are a Business Intelligence Researcher. Extract ALL company information.
     
     📍 WHERE TO LOOK (in order of priority):
@@ -206,7 +231,7 @@ CRITICAL FILTERING RULES:
 2. EXCLUDE any finding that says "could not verify" or "uncertain"
 3. If an agent found that something EXISTS (e.g., "Impressum found"), do NOT include it as a finding
 4. Only include VERIFIED ISSUES, not observations
-5. ALWAYS INCLUDE translation findings (Machine OR Human) - these are critical details
+5. ALWAYS INCLUDE a specific finding for "Translation Analysis" in the sections - this is MANDATORY even if positive
 
 Required structure:
 {
@@ -228,21 +253,21 @@ Required structure:
       "problem": "...", 
       "explanation": "...", 
       "recommendation": "...", 
-      "severity": "high|medium|low", 
+      "severity": "high|medium|low|info", 
       "sourceUrl": "...",
-      "sourceSection": "Footer|Header|Legal Page|etc",
-      "sourceSnippet": "exact 30-50 char quote",
+      "sourceSection": "...",
+      "sourceSnippet": "...",
       "confidence": 70-100,
       "verificationNote": "..." 
     }] 
   }],
   "translationAnalysis": {
       "status": "Machine Translation Detected | Human Translation Verified | Unknown",
-      "reasoning": "Explain WHY (e.g. 'Found Google Translate widget', 'Verified proper /de/ subfolder structure', 'Mixed mixed languages detected')",
-      "evidence": "Specific evidence found (URLs, snippets, widget names)"
+      "reasoning": "...",
+      "evidence": "..."
   },
   "conclusion": "...",
-  "actionList": ["Dynamically generated based on findings"]
+  "actionList": ["..."]
 }
 
 🎯 DYNAMIC ACTION LIST RULES:
@@ -261,10 +286,10 @@ If there are no findings, actionList should be: ["No critical issues found - mai
 
 RULES:
 1. EVERY finding MUST have all fields including sourceSection, sourceSnippet, confidence
-2. severity MUST be high, medium, or low
+2. severity MUST be high, medium, low, or INFO (for positive translation findings)
 3. For companyInfo: If a value is "Not found" or unknown, set it to null or OMIT the key
-4. Machine Translation is ALWAYS high severity - never filter it out
-5. REMOVE findings with confidence < 95 EXCEPT translation findings (Machine >= 90 or Human Verified)
+4. Machine Translation is ALWAYS high severity. Human Translation is INFO severity.
+5. REMOVE findings with confidence < 95 EXCEPT translation findings (keep ALL translation findings)
 6. ALWAYS fill the "translationAnalysis" object - it is MANDATORY`
 
 // ENHANCED Verification function to filter false positives
@@ -440,7 +465,8 @@ export async function executeAuditWorkflow(
     apiKey: string,
     updateStatus: (msg: string) => Promise<void>,
     cachedData?: any,
-    onAgentsComplete?: (data: any) => Promise<void>
+    onAgentsComplete?: (data: any) => Promise<void>,
+    job_id?: string
 ): Promise<JobReport> {
 
     let fullData: any = {}
@@ -480,7 +506,45 @@ export async function executeAuditWorkflow(
     const contextString = JSON.stringify(safeContext, null, 2)
     const baseContext = `Analyze this website: ${url} \n\nIMPORTANT: ${safeContext.legalPagesFound} legal pages were found and included.Check legal pages carefully before claiming anything is missing.\n\n[CONTEXT START]\n${contextString} \n[CONTEXT END]`
 
-    let res1, res2, res3, res4, res5, res6, res11
+    // RAG RETRIEVAL HELPER
+    const retrieveContext = async (query: string, job_id: string, supabase: any): Promise<string> => {
+        try {
+            const embedding = await generateEmbedding(query, apiKey)
+            const { data, error } = await supabase.rpc('match_document_chunks', {
+                query_embedding: embedding,
+                match_threshold: 0.5, // 0.5 is a reasonable start
+                match_count: 8,       // Get top 8 relevant chunks
+                filter_job_id: job_id
+            })
+
+            if (error) {
+                console.error('RAG Retrieval Error:', error)
+                return ''
+            }
+
+            if (!data || data.length === 0) return ''
+
+            return data.map((d: any) =>
+                `[SOURCE: ${d.url}]\n${d.content}\n[END SOURCE]`
+            ).join('\n\n')
+        } catch (e) {
+            console.error('Retrieval Exception:', e)
+            return ''
+        }
+    }
+
+    // UPDATE AGENT INSTRUCTIONS TO FORCE CITATION
+    // We append this requirement to all agents
+    const CITATION_INSTRUCTION = `
+    IMPORTANT: You have been provided with RELEVANT CONTEXT CHUNKS.
+    - Uses these chunks as your primary source of truth.
+    - Each chunk starts with [SOURCE: url].
+    - When you report a finding, you MUST include the "sourceUrl" field.
+    - If the chunk has a source URL, use it.
+    - DO NOT HALLUCINATE URLs.`
+
+
+    let res1: any, res2: any, res3: any, res4: any, res5: any, res6: any, res11: any
 
     if (cachedData) {
         await updateStatus('Restoring previous agent findings...')
@@ -488,16 +552,40 @@ export async function executeAuditWorkflow(
         res4 = cachedData.ux; res5 = cachedData.company; res6 = cachedData.localization
         res11 = cachedData.translationQuality
     } else {
-        await updateStatus('Deploying 7 AI Auditor Agents...')
+        await updateStatus('Deploying 7 AI Auditor Agents (RAG Enhanced)...')
 
-        await updateStatus('Deploying ALL 7 AI Auditor Agents (Parallel Swarm)...')
+        const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+
+        // Define specific queries for each agent to retrieve best chunks
+        const retrievalQueries: Record<string, string> = {
+            'Legal': 'impressum imprint legal notice terms conditions agb anbieterkennzeichnung verantwortlich nutzungsbedingungen',
+            'Consumer': 'withdrawal return refund widerruf cancellaton shipping rückgabe widerrufsrecht',
+            'Privacy': 'privacy datenschutz cookie gdpr data protection datenschutzerklärung personen bezogene daten',
+            'Company': 'contact address email vat id phone company number kontakt adresse ust-id handelsregister',
+            'Localization': 'language translation english german localization sprache übersetzung',
+            'Translation': 'translation quality machine google translate text übersetzungsfehler'
+        }
 
         let agentsFinished = 0
         const callAgent = async (instruction: string, name: string) => {
             console.log(`[Agent ${name}] Starting...`)
+            let ragContext = ''
+
+            if (job_id) {
+                const query = retrievalQueries[name] || name
+                const chunks = await retrieveContext(query, job_id, supabase)
+                if (chunks) {
+                    ragContext = `\n\n[SPECIFIC RETRIEVED CONTENT FOR ${name.toUpperCase()} AGENT]\n${chunks}\n\n${CITATION_INSTRUCTION}`
+                }
+            }
+
             try {
-                // Use gpt-4o-mini for speed and reliability, with 0 retries to prevent timeouts
-                const res = await callOpenAI(apiKey, instruction, [{ role: 'user', content: baseContext }], 'gpt-4o-mini', undefined, 0.5, 4000, 0)
+                // Combine Base Context (Structure) + RAG Context (Specific Details)
+                const messages = [
+                    { role: 'user', content: baseContext + ragContext }
+                ]
+
+                const res = await callOpenAI(apiKey, instruction, messages, 'gpt-4o-mini', undefined, 0.5, 4000, 0)
                 agentsFinished++
                 console.log(`[Agent ${name}]Done(${res.length} chars)`)
                 return res || `Agent ${name}: No issues found.`
@@ -515,7 +603,6 @@ export async function executeAuditWorkflow(
             }
         }
 
-        // Execute ALL agents in parallel to maximize speed within the wall-clock limit
         const [r1, r2, r3, r5, r6, r11] = await Promise.all([
             callAgent(AGENT_INSTRUCTIONS.legal, 'Legal'),
             callAgent(AGENT_INSTRUCTIONS.consumer, 'Consumer'),
@@ -526,7 +613,6 @@ export async function executeAuditWorkflow(
             updateProgress()
         ])
 
-        // Map results variables
         res1 = r1; res2 = r2; res3 = r3; res5 = r5
         res6 = r6; res11 = r11
     }

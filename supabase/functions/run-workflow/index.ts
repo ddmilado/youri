@@ -158,7 +158,8 @@ serve(async (req) => {
                     null, // No cached agent data initially
                     async (agentData) => {
                         await supabaseClient.from('jobs').update({ status_message: 'Compiling report...' }).eq('id', jobId)
-                    }
+                    },
+                    jobId
                 )
 
                 if (!auditReport || !auditReport.sections) throw new Error('Invalid report structure')

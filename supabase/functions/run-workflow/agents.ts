@@ -2,28 +2,7 @@
 
 import { callOpenAI } from './openai.ts'
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-// --- CONSOLIDATED HELPERS (For manual copy-pasting) ---
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: 'text-embedding-3-large',
-            input: text.replace(/\n/g, ' '),
-            dimensions: 1536
-        })
-    })
-    if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`OpenAI Embedding Error: ${error}`)
-    }
-    const data = await response.json()
-    return data.data[0].embedding
-}
+import { generateEmbedding } from '../common/embeddings.ts'
 
 // Type definitions
 export interface AuditSection {
@@ -461,7 +440,7 @@ function verifyMissingFindings(report: any, allPages: any[]): any {
 
 export async function executeAuditWorkflow(
     url: string,
-    scrapedContent: string,
+    scrapedContent: string | Record<string, any>,
     apiKey: string,
     updateStatus: (msg: string) => Promise<void>,
     cachedData?: any,

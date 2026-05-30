@@ -52,11 +52,15 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
+    let jobIdForFailure: string | undefined
+    let supabaseForFailure: any = null
+
     try {
         const body = await req.json() as WorkflowInput
         const { input_as_text, user_id, job_id: providedJobId, is_callback } = body
 
         let jobId = providedJobId
+        jobIdForFailure = providedJobId
 
         if (!input_as_text) throw new Error('input_as_text is required')
         if (!user_id) throw new Error('user_id is required')
@@ -65,6 +69,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
+        supabaseForFailure = supabaseClient
 
         // Extract URL
         const urlMatch = input_as_text.match(/(https?:\/\/[^\s]+)/i)
@@ -81,14 +86,19 @@ serve(async (req) => {
 
             if (jobError) throw new Error(`Failed to create job: ${jobError.message}`)
             jobId = job.id
+            jobIdForFailure = job.id
         }
 
         // 2. Phase Detection (Crawl vs Analysis)
-        const { data: currentJob } = await supabaseClient
+        const { data: currentJob, error: currentJobError } = await supabaseClient
             .from('jobs')
             .select('raw_data, crawl_status')
             .eq('id', jobId)
             .single()
+
+        if (currentJobError || !currentJob) {
+            throw new Error(`Job not found or unavailable: ${currentJobError?.message || jobId}`)
+        }
 
         const hasCrawlData = currentJob?.raw_data?.pages && currentJob.raw_data.pages.length > 0
 
@@ -102,15 +112,37 @@ serve(async (req) => {
                 crawl_status: 'crawling'
             }).eq('id', jobId)
 
-            // Trigger crawler asynchronously (do not await)
-            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/crawler`, {
+            const crawlerTrigger = fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/crawler`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ job_id: jobId, url: targetUrl, user_id: user_id })
-            }).catch(e => console.error('Crawler trigger failed:', e))
+            }).then(async (response) => {
+                if (!response.ok) {
+                    const errorText = await response.text()
+                    console.error('Crawler trigger failed:', errorText)
+                    await supabaseClient.from('jobs').update({
+                        status: 'failed',
+                        crawl_status: 'failed',
+                        status_message: `Crawler failed to start: ${errorText.substring(0, 120)}`
+                    }).eq('id', jobId)
+                }
+            }).catch(async (e) => {
+                console.error('Crawler trigger failed:', e)
+                await supabaseClient.from('jobs').update({
+                    status: 'failed',
+                    crawl_status: 'failed',
+                    status_message: `Crawler failed to start: ${(e as Error).message.substring(0, 120)}`
+                }).eq('id', jobId)
+            })
+
+            // @ts-ignore
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+                // @ts-ignore
+                EdgeRuntime.waitUntil(crawlerTrigger)
+            }
 
             return new Response(JSON.stringify({
                 success: true,
@@ -142,17 +174,14 @@ serve(async (req) => {
 
                 await updateStatus('Launching AI Auditors...')
 
-                // Format scraped content for agents
+                // Pass the structured crawl payload through to the agent workflow.
+                // The agent runner prioritizes legal pages, contact data, and RAG verification from this shape.
                 const contextData = currentJob.raw_data
-                let scrapedContent = contextData.pages.map((p: any) => `\n\n=== PAGE: ${p.title} (${p.pageType || 'general'}) ===\nURL: ${p.url}\n${p.markdown || ''}`).join('\n\n')
-                if (contextData.contact) {
-                    scrapedContent += `\n\n=== CONTACT ===\nEmail: ${contextData.contact.email}\nPhone: ${contextData.contact.phone}\n`
-                }
 
                 // Execute Audit
                 const auditReport = await executeAuditWorkflow(
                     targetUrl,
-                    scrapedContent,
+                    contextData,
                     openaiApiKey,
                     updateStatus,
                     null, // No cached agent data initially
@@ -184,6 +213,15 @@ serve(async (req) => {
                     status: 'failed',
                     status_message: `Analysis failed: ${(error as Error).message.substring(0, 100)}`
                 }).eq('id', jobId)
+                if (statusChannel) {
+                    await statusChannel.send({
+                        type: 'broadcast',
+                        event: 'status_update',
+                        payload: { message: `Analysis failed: ${(error as Error).message}`, status: 'failed', id: jobId }
+                    }, { httpSend: true }).catch((broadcastError: unknown) => {
+                        console.error('Failed to broadcast analysis failure:', broadcastError)
+                    })
+                }
             } finally {
                 concurrencyLimiter.release()
                 if (statusChannel) await supabaseClient.removeChannel(statusChannel)
@@ -208,6 +246,14 @@ serve(async (req) => {
 
     } catch (error) {
         console.error('Workflow error:', error)
+        if (jobIdForFailure && supabaseForFailure) {
+            await supabaseForFailure.from('jobs').update({
+                status: 'failed',
+                status_message: `Workflow failed: ${(error as Error).message.substring(0, 140)}`
+            }).eq('id', jobIdForFailure).catch((statusError: unknown) => {
+                console.error('Failed to persist workflow failure:', statusError)
+            })
+        }
         return new Response(JSON.stringify({ success: false, error: (error as Error).message }), { status: 200, headers: corsHeaders })
     }
 })

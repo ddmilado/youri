@@ -30,10 +30,11 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
+    let statusChannel: any = null
+
     try {
         // Parse request payload
         const body = await req.text()
-        console.log('Request body:', body)
 
         const { input_as_text, user_id, search_id, creator_name, creator_email } = JSON.parse(body) as WorkflowInput
 
@@ -51,7 +52,7 @@ serve(async (req) => {
         )
 
         // Realtime status broadcaster
-        const statusChannel = search_id ? supabaseClient.channel(`search-status-${search_id}`) : null
+        statusChannel = search_id ? supabaseClient.channel(`search-status-${search_id}`) : null
 
         const updateStatus = async (msg: string) => {
             console.log(`[Status Update] ${msg}`)
@@ -142,6 +143,15 @@ serve(async (req) => {
 
     } catch (error) {
         console.error('Keyword search error:', error)
+        if (statusChannel) {
+            await statusChannel.send({
+                type: 'broadcast',
+                event: 'status_update',
+                payload: { message: (error as Error).message, status: 'failed' }
+            }, { httpSend: true }).catch((broadcastError: unknown) => {
+                console.error('Failed to broadcast keyword search failure:', broadcastError)
+            })
+        }
         return new Response(
             JSON.stringify({
                 success: false,
@@ -251,6 +261,7 @@ Output Format:
                     content: `Here are the raw search results:\n${JSON.stringify(rawResults, null, 2)}`
                 }
             ],
+            max_completion_tokens: 4000,
             response_format: { type: 'json_object' }
         })
     })

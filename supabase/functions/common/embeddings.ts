@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
 export async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
     const response = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
@@ -8,8 +6,9 @@ export async function generateEmbedding(text: string, apiKey: string): Promise<n
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'text-embedding-3-small',
-            input: text.replace(/\n/g, ' ')
+            model: 'text-embedding-3-large',
+            input: text.replace(/\n/g, ' '),
+            dimensions: 1536
         })
     })
 

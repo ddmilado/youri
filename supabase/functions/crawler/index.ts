@@ -3,53 +3,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-// --- CONSOLIDATED HELPERS (For manual copy-pasting) ---
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: 'text-embedding-3-large',
-            input: text.replace(/\n/g, ' '),
-            dimensions: 1536
-        })
-    })
-    if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`OpenAI Embedding Error: ${error}`)
-    }
-    const data = await response.json()
-    return data.data[0].embedding
-}
-
-function chunkText(text: string, maxChars: number = 1000): string[] {
-    if (!text || text.length === 0) return []
-    const chunks: string[] = []
-    let currentChunk = ''
-    const paragraphs = text.split(/\n\s*\n/)
-    for (const paragraph of paragraphs) {
-        if ((currentChunk.length + paragraph.length) > maxChars && currentChunk.length > 0) {
-            chunks.push(currentChunk.trim()); currentChunk = ''
-        }
-        if (paragraph.length > maxChars) {
-            const sentences = paragraph.match(/[^.!?]+[.!?]+|\s+/g) || [paragraph]
-            for (const sentence of sentences) {
-                if ((currentChunk.length + sentence.length) > maxChars && currentChunk.length > 0) {
-                    chunks.push(currentChunk.trim()); currentChunk = ''
-                }
-                currentChunk += sentence
-            }
-        } else {
-            currentChunk += paragraph + '\n\n'
-        }
-    }
-    if (currentChunk.trim().length > 0) chunks.push(currentChunk.trim())
-    return chunks
-}
+import { chunkText, generateEmbedding } from '../common/embeddings.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -280,12 +234,18 @@ function formatCrawlResults(data: any[]): any {
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+    let jobIdForFailure: string | null = null
     try {
         console.log('[Crawler] Start processing request...')
         const body = await req.json() as CrawlInput
         const { job_id, url, user_id, force_recrawl } = body
+        jobIdForFailure = job_id
 
         console.log(`[Crawler] Job: ${job_id}, URL: ${url}, Force: ${force_recrawl}`)
+
+        if (!job_id) throw new Error('job_id is required')
+        if (!url) throw new Error('url is required')
+        if (!user_id) throw new Error('user_id is required')
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -294,9 +254,7 @@ serve(async (req) => {
 
         console.log(`[Crawler] Env Check - URL: ${!!supabaseUrl}, Key: ${!!supabaseKey}, Firecrawl: ${!!firecrawlKey}, OpenAI: ${!!openaiKey}`)
 
-        if (!openaiKey) {
-            console.error('[Crawler] CRITICAL: OPENAI_API_KEY is missing. RAG will fail.')
-        }
+        if (!firecrawlKey) throw new Error('FIRECRAWL_API_KEY is not configured')
 
         const supabaseClient = createClient(supabaseUrl, supabaseKey)
         const updateStatus = async (msg: string) => {
@@ -314,6 +272,7 @@ serve(async (req) => {
                 .select('id, raw_data')
                 .eq('url', url) // Match exact URL
                 .eq('crawl_status', 'completed')
+                .gte('crawled_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle()
@@ -357,11 +316,16 @@ serve(async (req) => {
             crawlData = await executeCrawl(url, firecrawlKey, updateStatus)
             console.log(`[Crawler] Crawl complete. Raw pages: ${crawlData?.pages?.length || 0}`)
 
-            await updateStatus('RAG: Building knowledge base for vector search...')
+            if (!openaiKey) {
+                console.error('[Crawler] OPENAI_API_KEY is missing. Skipping RAG ingestion.')
+                await updateStatus('Crawl complete. Knowledge base skipped: OpenAI key missing.')
+            } else {
+                await updateStatus('RAG: Building knowledge base for vector search...')
+            }
             const allPages = crawlData.pages || []
 
             let chunkCount = 0
-            for (const page of allPages) {
+            for (const page of openaiKey ? allPages : []) {
                 console.log(`[Crawler] Processing page: ${page.url}`)
                 const chunks = chunkText(page.markdown || '', 1000)
                 if (chunks.length === 0) continue
@@ -391,7 +355,9 @@ serve(async (req) => {
                     }
                 }
             }
-            await updateStatus(`RAG: Ingested ${chunkCount} chunks.`)
+            if (openaiKey) {
+                await updateStatus(`RAG: Ingested ${chunkCount} chunks.`)
+            }
         }
 
         // 3. FINALIZE PHASE 1
@@ -399,7 +365,8 @@ serve(async (req) => {
         const { error: updateError } = await supabaseClient.from('jobs').update({
             raw_data: crawlData,
             crawl_status: 'completed',
-            status_message: 'Crawl finished. Analysis starting...'
+            status_message: 'Crawl finished. Analysis starting...',
+            crawled_at: new Date().toISOString()
         }).eq('id', job_id)
 
         if (updateError) console.error('[Crawler] Failed to update job status:', updateError)
@@ -416,6 +383,21 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, message: 'Phase 1 complete.' }), { headers: corsHeaders })
     } catch (error) {
         console.error('[Crawler] Fatal Error:', error)
+        if (jobIdForFailure) {
+            try {
+                const supabaseClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+                )
+                await supabaseClient.from('jobs').update({
+                    status: 'failed',
+                    crawl_status: 'failed',
+                    status_message: `Crawl failed: ${(error as Error).message.substring(0, 140)}`
+                }).eq('id', jobIdForFailure)
+            } catch (statusError) {
+                console.error('[Crawler] Failed to persist failure status:', statusError)
+            }
+        }
         return new Response(JSON.stringify({ success: false, error: (error as Error).message }), { status: 500, headers: corsHeaders })
     }
 })

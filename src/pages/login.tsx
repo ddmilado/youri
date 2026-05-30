@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Mail } from 'lucide-react'
+import { Loader2, Mail, ShieldCheck, Sparkles } from 'lucide-react'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -58,21 +58,44 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <Link to="/dashboard" className="flex justify-center mb-4 hover:opacity-80 transition-opacity">
-            <img src="/logo.svg" alt="YourIntAI Logo" className="h-16 w-16 object-contain p-2 bg-white" />
+    <div className="app-shell min-h-screen p-4 md:grid md:place-items-center">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm md:grid-cols-[1fr_28rem]">
+        <section className="hidden bg-primary p-10 text-primary-foreground md:flex md:flex-col md:justify-between">
+          <Link to="/dashboard" className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-lg bg-white">
+              <img src="/logo.svg" alt="YourIntAI Logo" className="h-8 w-8 object-contain" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">YourIntAI</p>
+              <p className="text-xs text-primary-foreground/70">Lead intelligence workspace</p>
+            </div>
           </Link>
-          <CardTitle className="text-3xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">Sign in to your YourInt AI account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {magicLinkSent ? (
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                <Mail className="h-6 w-6 text-primary" />
+          <div>
+            <p className="eyebrow text-secondary">Workspace access</p>
+            <h1 className="mt-3 max-w-md text-4xl font-bold tracking-tight text-balance">Turn audits and search signals into a cleaner lead pipeline.</h1>
+            <div className="mt-8 grid gap-3 text-sm text-primary-foreground/80">
+              <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-secondary" /> AI-assisted discovery workflows</div>
+              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-secondary" /> Shared team pipeline and audit history</div>
+            </div>
+          </div>
+        </section>
+
+        <Card className="rounded-none border-0 shadow-none">
+          <CardHeader className="space-y-1 pt-8">
+            <Link to="/dashboard" className="flex justify-center mb-4 hover:opacity-80 transition-opacity md:hidden">
+              <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-white">
+                <img src="/logo.svg" alt="YourIntAI Logo" className="h-10 w-10 object-contain" />
               </div>
+            </Link>
+            <CardTitle className="text-center text-3xl font-bold">Welcome back</CardTitle>
+            <CardDescription className="text-center">Sign in to your YourIntAI account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {magicLinkSent ? (
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                  <Mail className="h-6 w-6 text-secondary" />
+                </div>
               <div>
                 <h3 className="font-semibold text-lg">Check your email</h3>
                 <p className="text-sm text-muted-foreground mt-1">We sent a magic link to {email}</p>
@@ -81,8 +104,8 @@ export function LoginPage() {
                 Back to login
               </Button>
             </div>
-          ) : (
-            <div className="space-y-4">
+            ) : (
+              <div className="space-y-4">
               <form onSubmit={handleEmailLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -116,14 +139,15 @@ export function LoginPage() {
                 </Button>
               </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link to="/signup" className="text-primary hover:underline font-medium">Sign up</Link>
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <p className="text-center text-sm text-muted-foreground">
+                  Don't have an account?{' '}
+                  <Link to="/signup" className="text-secondary hover:underline font-semibold">Sign up</Link>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

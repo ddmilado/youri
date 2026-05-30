@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/auth-context'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { LayoutDashboard, Plus, History, Settings, LogOut, Moon, Sun, Menu, Search, BookOpen, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
@@ -23,6 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const { theme, setTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false)
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -50,11 +52,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Mobile Top Header - Clean & Minimal */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-background/80 backdrop-blur-md border-b border-border z-50 flex items-center px-4 justify-between transition-all duration-200">
+    <div className="app-shell min-h-screen flex flex-col">
+      {/* Mobile Top Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/80 z-50 flex items-center px-4 justify-between transition-all duration-200">
         <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="bg-primary/10 p-1.5 rounded-lg">
+          <div className="grid h-8 w-8 place-items-center rounded-md border border-border bg-white dark:bg-slate-950">
             <img src="/logo.svg" alt="Logo" className="h-5 w-5 object-contain" />
           </div>
           <span className="font-bold text-lg tracking-tight">YourIntAI</span>
@@ -67,16 +69,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-card border-r border-border z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-xl lg:shadow-none",
+          "fixed top-0 left-0 h-full w-72 bg-card/95 backdrop-blur-xl border-r border-border/80 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-xl lg:shadow-none",
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="p-6 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <img src="/logo.svg" alt="Logo" className="h-8 w-8 object-contain" />
-            <span className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">
-              YourIntAI
-            </span>
+            <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-white shadow-sm dark:bg-slate-950">
+              <img src="/logo.svg" alt="Logo" className="h-7 w-7 object-contain" />
+            </div>
+            <div className="leading-tight">
+              <span className="block text-lg font-bold tracking-tight">YourIntAI</span>
+              <span className="text-xs font-medium text-muted-foreground">Lead intelligence</span>
+            </div>
           </Link>
           {/* Close button for mobile drawer mode */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -84,20 +89,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
 
-        <nav className="px-3 space-y-1 mt-2">
+        <nav className="px-3 space-y-1.5 mt-2">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path)
             return (
               <Link key={item.path} to={item.path}>
                 <Button
-                  variant={isActive ? 'secondary' : 'ghost'}
+                  variant="ghost"
                   className={cn(
-                    'w-full justify-start relative overflow-hidden',
-                    isActive && 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 font-medium'
+                    'h-10 w-full justify-start relative overflow-hidden px-3 text-muted-foreground',
+                    isActive && 'bg-secondary/10 text-foreground shadow-sm'
                   )}
                 >
-                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 rounded-r-full" />}
-                  <item.icon className={cn("mr-3 h-5 w-5", isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")} />
+                  {isActive && <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-secondary" />}
+                  <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-secondary" : "text-muted-foreground")} />
                   {item.label}
                 </Button>
               </Link>
@@ -105,12 +110,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="absolute bottom-6 left-3 right-3 space-y-2">
+        <div className="absolute bottom-5 left-3 right-3 space-y-2 border-t border-border/80 pt-4">
           <Button variant="ghost" className="w-full justify-start hidden lg:flex" onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun className="mr-3 h-5 w-5" /> : <Moon className="mr-3 h-5 w-5" />}
+            {theme === 'dark' ? <Sun className="mr-3 h-4 w-4" /> : <Moon className="mr-3 h-4 w-4" />}
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </Button>
-          <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleSignOut}>
+          <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setSignOutDialogOpen(true)}>
             <LogOut className="mr-3 h-5 w-5" />
             Sign Out
           </Button>
@@ -120,14 +125,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <main className={cn(
         'flex-1 transition-all duration-200 min-h-screen',
-        'lg:ml-64',
+        'lg:ml-72',
         'pt-14 pb-20 lg:pt-0 lg:pb-0' // Mobile: pad top for header, bottom for nav
       )}>
         {children}
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t border-border pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/80 pb-safe">
         <div className="flex items-center justify-between px-2 h-[3.5rem] pb-1">
           {mobileNavItems.map((item, index) => {
             const isActive = item.path && location.pathname.startsWith(item.path)
@@ -136,7 +141,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               return (
                 <div key={index} className="relative -top-5">
                   <Link to={item.path}>
-                    <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-lg shadow-emerald-600/20 flex items-center justify-center text-white hover:scale-105 transition-transform">
+                    <div className="h-14 w-14 rounded-full bg-secondary shadow-lg shadow-cyan-900/15 flex items-center justify-center text-white hover:scale-105 transition-transform">
                       <Plus className="h-7 w-7" />
                     </div>
                   </Link>
@@ -150,7 +155,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   onClick={() => item.action ? item.action() : navigate(item.path || '#')}
                   className={cn(
                     "flex flex-col items-center justify-center w-full h-full space-y-0.5",
-                    isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:text-foreground"
+                    isActive ? "text-secondary" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <item.icon className={cn("h-5 w-5 transition-all", isActive && "scale-110")} />
@@ -169,6 +174,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={signOutDialogOpen}
+        onOpenChange={setSignOutDialogOpen}
+        title="Sign out?"
+        description="You will need to sign in again before accessing your workspace."
+        confirmLabel="Sign out"
+        cancelLabel="Stay signed in"
+        variant="warning"
+        onConfirm={handleSignOut}
+      />
     </div>
   )
 }

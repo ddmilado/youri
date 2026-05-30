@@ -3,13 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, TrendingUp, Users, Filter, Download, Loader2 } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, Clock3, Loader2, Plus, Search as SearchIcon, Sparkles, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase, getLeadResults, getKeywordSearchResults, getRecentPeopleSearches, createLead } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { formatDistanceToNow } from 'date-fns'
-import { Search as SearchIcon, History } from 'lucide-react'
+import { History } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import {
@@ -29,19 +29,48 @@ import {
 
 
 const StatusBadge = ({ status }: { status: string }) => {
-  let colorClass = "text-gray-600 bg-gray-100 border-gray-200"
-  if (status === 'completed') colorClass = "text-green-700 bg-green-50 border-green-200"
-  else if (status === 'processing') colorClass = "text-blue-700 bg-blue-50 border-blue-200"
-  else if (status === 'failed') colorClass = "text-red-700 bg-red-50 border-red-200"
+  let colorClass = "text-slate-700 bg-slate-100 border-slate-200 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-700"
+  if (status === 'completed') colorClass = "text-teal-700 bg-teal-50 border-teal-200 dark:text-teal-300 dark:bg-teal-950/40 dark:border-teal-800"
+  else if (status === 'processing') colorClass = "text-sky-700 bg-sky-50 border-sky-200 dark:text-sky-300 dark:bg-sky-950/40 dark:border-sky-800"
+  else if (status === 'failed') colorClass = "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-800"
 
   const label = status.charAt(0).toUpperCase() + status.slice(1)
 
   return (
-    <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
+    <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full border w-fit ${colorClass}`}>
       <span className="font-semibold text-xs">{label}</span>
     </div>
   )
 }
+
+const MetricCard = ({
+  label,
+  value,
+  caption,
+  icon: Icon,
+  tone,
+}: {
+  label: string
+  value: number
+  caption: string
+  icon: typeof Users
+  tone: string
+}) => (
+  <Card className="overflow-hidden">
+    <CardContent className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
+        </div>
+        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${tone}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{caption}</p>
+    </CardContent>
+  </Card>
+)
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -137,92 +166,70 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Top Header - SaaS Style */}
-      <header className="flex h-auto min-h-[4rem] items-center flex-shrink-0 gap-4 border-b bg-background px-4 md:px-6 py-4 shadow-sm flex-wrap">
-        <div className="flex flex-col min-w-0 flex-1">
-          <h1 className="text-lg font-semibold md:text-xl truncate">Dashboard</h1>
-          <p className="text-xs text-muted-foreground hidden md:block truncate">
-            Welcome back, {firstName}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button variant="outline" size="sm" className="hidden sm:flex">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm" className="hidden sm:flex">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Link to="/new" className="hidden md:block">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap">
-              <Plus className="mr-1 h-3.5 w-3.5 md:mr-2 md:h-4 md:w-4" />
+    <div className="min-h-screen text-foreground">
+      <main className="app-page">
+        <header className="app-header">
+          <div className="min-w-0">
+            <p className="eyebrow">Command center</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Welcome back{firstName ? `, ${firstName}` : ''}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Track audits, convert useful findings into leads, and keep an eye on team search activity.
+            </p>
+          </div>
+          <Link to="/new">
+            <Button className="w-full md:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
               New Analysis
             </Button>
           </Link>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content Area - Scrollable */}
-      <main className="flex-1 overflow-auto p-6">
-        {/* KPI Cards - Dense Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mb-6">
-          <Card className="border-slate-200 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalLeads}</div>
-              <p className="text-xs text-muted-foreground mt-1">Qualified opportunities</p>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Audits</CardTitle>
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.activeAudits}</div>
-              <p className="text-xs text-muted-foreground mt-1">In progress</p>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200 dark:border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                <TrendingUp className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.completedAudits}</div>
-              <p className="text-xs text-muted-foreground mt-1">Finished audits</p>
-            </CardContent>
-          </Card>
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Total Leads"
+            value={stats.totalLeads}
+            caption="Qualified opportunities in the pipeline"
+            icon={Users}
+            tone="bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300"
+          />
+          <MetricCard
+            label="Active Audits"
+            value={stats.activeAudits}
+            caption="Currently processing in the background"
+            icon={Clock3}
+            tone="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+          />
+          <MetricCard
+            label="Completed"
+            value={stats.completedAudits}
+            caption="Finished audits ready for review"
+            icon={CheckCircle2}
+            tone="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+          />
         </div>
 
-        {/* Main Data View - Tabs for Audits, Leads, and Searches */}
         <Tabs defaultValue="audits" className="w-full">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <TabsList>
               <TabsTrigger value="audits">Recent Audits</TabsTrigger>
               <TabsTrigger value="searches">Searches</TabsTrigger>
             </TabsList>
           </div>
 
-
-
           <TabsContent value="audits" className="m-0">
             <Card className="overflow-hidden">
-              {/* Batch Actions Toolbar */}
+              <CardHeader className="border-b border-border/80">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <CardTitle>Audit Queue</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">Latest site analyses from your workspace.</p>
+                  </div>
+                  <Badge variant="outline" className="w-fit">{jobs?.length || 0} visible</Badge>
+                </div>
+              </CardHeader>
               {selectedJobIds.length > 0 && (
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 px-4 border-b border-emerald-100 dark:border-emerald-800 flex items-center justify-between transition-all animate-in slide-in-from-top-2">
-                  <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                <div className="flex items-center justify-between border-b border-secondary/20 bg-secondary/10 p-3 px-4 transition-all animate-in slide-in-from-top-2">
+                  <div className="text-sm font-semibold text-foreground">
                     {selectedJobIds.length} audit{selectedJobIds.length !== 1 && 's'} selected
                   </div>
                   <div className="flex items-center gap-2">
@@ -238,7 +245,7 @@ export function DashboardPage() {
                       size="sm"
                       onClick={handleAddToLeads}
                       disabled={isCreatingLeads}
-                      className="bg-emerald-600 text-white hover:bg-emerald-700 h-8"
+                      className="h-8 bg-secondary text-white hover:bg-secondary/90"
                     >
                       {isCreatingLeads ? (
                         <>
@@ -307,14 +314,14 @@ export function DashboardPage() {
                               }}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">{job.title}</TableCell>
-                          <TableCell className="text-muted-foreground">{job.url}</TableCell>
+                          <TableCell className="min-w-[180px] font-semibold">{job.title}</TableCell>
+                          <TableCell className="max-w-[260px] truncate text-muted-foreground">{job.url}</TableCell>
                           <TableCell>
                             <StatusBadge status={job.status} />
                           </TableCell>
                           <TableCell>
                             {job.user_id === user?.id ? (
-                              <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
+                              <Badge variant="outline" className="h-5 text-[10px] font-semibold">You</Badge>
                             ) : (
                               <span className="text-xs text-muted-foreground whitespace-nowrap">{job.creator_name || 'Team Member'}</span>
                             )}
@@ -324,15 +331,22 @@ export function DashboardPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Link to={job.status === 'completed' ? `/report/${job.id}` : '#'}>
-                              <Button variant="outline" size="sm">View</Button>
+                              <Button variant="outline" size="sm">
+                                View
+                                <ArrowUpRight className="ml-2 h-3.5 w-3.5" />
+                              </Button>
                             </Link>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          No audits found. Create your first one.
+                        <TableCell colSpan={7} className="h-36 text-center">
+                          <div className="mx-auto max-w-sm">
+                            <Sparkles className="mx-auto h-8 w-8 text-muted-foreground" />
+                            <p className="mt-3 font-semibold">No audits yet</p>
+                            <p className="mt-1 text-sm text-muted-foreground">Create your first analysis to start building a lead pipeline.</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}
@@ -344,11 +358,10 @@ export function DashboardPage() {
 
           <TabsContent value="searches" className="m-0 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Keyword Searches Card */}
               <Card>
                 <CardHeader className="border-b pb-4">
                   <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <History className="h-5 w-5 text-emerald-600" />
+                    <History className="h-5 w-5 text-secondary" />
                     Keyword Searches
                   </CardTitle>
                 </CardHeader>
@@ -361,14 +374,14 @@ export function DashboardPage() {
                     ) : keywordSearches && keywordSearches.length > 0 ? (
                       <div className="divide-y overflow-hidden">
                         {keywordSearches.slice(0, 5).map((search) => (
-                          <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
+                          <div key={search.id} className="p-4 hover:bg-muted/45 transition-colors max-w-full overflow-hidden">
                             <div className="font-medium truncate" title={search.search_query}>{search.search_query}</div>
                             <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <span className="truncate max-w-[120px]">{search.company_name}</span>
                                 <span className="text-[10px] opacity-50">•</span>
                                 {search.user_id === user?.id ? (
-                                  <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1 rounded">You</span>
+                                  <span className="rounded bg-secondary/10 px-1.5 py-0.5 text-[10px] font-semibold text-secondary">You</span>
                                 ) : (
                                   <span className="text-[10px] opacity-70">Team Member</span>
                                 )}
@@ -379,17 +392,16 @@ export function DashboardPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-8 text-center text-muted-foreground italic">No recent keyword searches</div>
+                      <div className="p-8 text-center text-sm text-muted-foreground">No recent keyword searches</div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* People Searches Card */}
               <Card>
                 <CardHeader className="border-b pb-4">
                   <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <SearchIcon className="h-5 w-5 text-emerald-600" />
+                    <SearchIcon className="h-5 w-5 text-secondary" />
                     People Searches
                   </CardTitle>
                 </CardHeader>
@@ -402,7 +414,7 @@ export function DashboardPage() {
                     ) : peopleSearches && peopleSearches.length > 0 ? (
                       <div className="divide-y overflow-hidden">
                         {peopleSearches.slice(0, 5).map((search) => (
-                          <div key={search.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors max-w-full overflow-hidden">
+                          <div key={search.id} className="p-4 hover:bg-muted/45 transition-colors max-w-full overflow-hidden">
                             <div className="font-medium truncate" title={search.query}>{search.query}</div>
                             <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center justify-between gap-2">
                               <span className="whitespace-nowrap">{search.results?.length || 0} matches</span>
@@ -412,7 +424,7 @@ export function DashboardPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-8 text-center text-muted-foreground italic">No recent people searches</div>
+                      <div className="p-8 text-center text-sm text-muted-foreground">No recent people searches</div>
                     )}
                   </div>
                 </CardContent>
@@ -420,7 +432,6 @@ export function DashboardPage() {
             </div>
           </TabsContent>
         </Tabs>
-
       </main>
     </div>
   )

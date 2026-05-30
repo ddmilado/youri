@@ -29,6 +29,7 @@ export function NewAuditPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addTask, updateTask, tasks } = useBackgroundTasks()
+  const urlCount = inputText.split('\n').filter(u => u.trim().length > 0).length
 
   const handleMinimizeAudit = (jobId: string, url: string) => {
     // Only add if not already in the tray
@@ -258,117 +259,126 @@ export function NewAuditPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-2xl mx-auto min-h-screen flex items-center flex-col">
-      <Card className="w-full">
-        <CardHeader className="p-4 md:p-6 pb-0 md:pb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-600 rounded-lg flex items-center justify-center mb-4">
-            <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-white" />
+    <div className="app-page">
+      <div className="mx-auto max-w-5xl">
+        <header className="app-header">
+          <div>
+            <p className="eyebrow">Create</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">New Analysis</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Start a website audit or discover companies from a targeted keyword search.
+            </p>
           </div>
-          <CardTitle className="text-2xl md:text-3xl">AI Lead Discovery</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            Choose your workflow: Search, Audit, or Translation Check
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Workflow Type Tabs */}
-          <div className="flex gap-1 md:gap-2 mb-6 p-1 bg-muted rounded-lg">
-            <button
-              type="button"
-              onClick={() => setWorkflowType('url')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'url'
-                ? 'bg-white dark:bg-gray-800 shadow-sm'
-                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
-                }`}
-            >
-              <LinkIcon className="h-4 w-4" />
-              <span className="font-medium text-xs md:text-sm">URL Analysis</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setWorkflowType('keyword')}
-              className={`flex-1 py-1.5 md:py-2 px-2 md:px-4 rounded-md transition-all flex items-center justify-center gap-1.5 md:gap-2 ${workflowType === 'keyword'
-                ? 'bg-white dark:bg-gray-800 shadow-sm'
-                : 'hover:bg-white/50 dark:hover:bg-gray-800/50'
-                }`}
-            >
-              <Search className="h-4 w-4" />
-              <span className="font-medium text-xs md:text-sm">Keyword</span>
-            </button>
-          </div>
+        </header>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="inputText">
-                {workflowType === 'keyword' ? 'Search Keywords' : workflowType === 'translation' ? 'Website URL' : 'Website URLs'} *
-              </Label>
-              {workflowType === 'keyword' ? (
-                <Textarea
-                  id="inputText"
-                  placeholder="e.g., 'software companies Germany site:.de'"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="text-base min-h-[120px] resize-y"
-                  rows={4}
-                />
-              ) : (
-                <Textarea
-                  id="inputText"
-                  placeholder={workflowType === 'translation' ? "https://example.com" : "Enter one URL per line..."}
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="text-base min-h-[120px] resize-y"
-                  rows={4}
-                />
-              )}
-              {workflowType === 'url' && (
-                <div className="flex justify-between items-center">
+        <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border/80">
+              <div className="flex items-center gap-3">
+                <div className="grid h-11 w-11 place-items-center rounded-lg bg-secondary/10 text-secondary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle>AI Lead Discovery</CardTitle>
+                  <CardDescription>Choose a workflow and provide the source input.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="mb-6 grid gap-2 rounded-lg bg-muted/70 p-1 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setWorkflowType('url')}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-all ${workflowType === 'url'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'
+                    }`}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  URL Analysis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkflowType('keyword')}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-all ${workflowType === 'keyword'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'
+                    }`}
+                >
+                  <Search className="h-4 w-4" />
+                  Keyword Search
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="inputText">
+                      {workflowType === 'keyword' ? 'Search Keywords' : workflowType === 'translation' ? 'Website URL' : 'Website URLs'} *
+                    </Label>
+                    {workflowType === 'url' && (
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${urlCount > 5
+                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'
+                        : 'border-border bg-muted text-muted-foreground'
+                        }`}>
+                        {urlCount}/5 URLs
+                      </span>
+                    )}
+                  </div>
+                  <Textarea
+                    id="inputText"
+                    placeholder={workflowType === 'keyword' ? "e.g. software companies Germany site:.de" : "https://example.com\nhttps://another-company.com"}
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="min-h-[180px] resize-y text-base leading-7"
+                    rows={7}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Enter one or more URLs (one per line) for deep analysis. Maximum 5 URLs per batch.
+                    {workflowType === 'keyword'
+                      ? 'Use specific regions, industries, and search operators for cleaner results.'
+                      : 'Enter one URL per line. Batches are limited to 5 URLs.'}
                   </p>
-                  <span className={`text-xs font-medium ${inputText.split('\n').filter(u => u.trim().length > 0).length > 5
-                    ? 'text-red-600'
-                    : 'text-muted-foreground'
-                    }`}>
-                    {inputText.split('\n').filter(u => u.trim().length > 0).length}/5 URLs
-                  </span>
                 </div>
-              )}
-            </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full transition-all duration-200 bg-emerald-600"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>{workflowType === 'keyword' ? 'Searching...' : 'Running AI Analysis...'}</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  {workflowType === 'keyword' ? (
+                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                  {loading ? (
                     <>
-                      <Search className="h-5 w-5" />
-                      <span>Find Companies</span>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {workflowType === 'keyword' ? 'Searching...' : 'Running AI Analysis...'}
+                    </>
+                  ) : workflowType === 'keyword' ? (
+                    <>
+                      <Search className="mr-2 h-5 w-5" />
+                      Find Companies
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-5 w-5" />
-                      <span>Analyze URL</span>
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Analyze URL
                     </>
                   )}
-                </div>
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <aside className="surface-panel h-fit p-5">
+            <p className="text-sm font-semibold">Workflow Notes</p>
+            <div className="mt-4 space-y-4 text-sm text-muted-foreground">
+              <div>
+                <p className="font-semibold text-foreground">URL Analysis</p>
+                <p className="mt-1">Best for known companies or a short prospect list that needs deeper inspection.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Keyword Search</p>
+                <p className="mt-1">Best for finding new companies from market, region, or industry signals.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
 
       <AnimatePresence>
         {processingJobId && !isSearchProcessing && workflowType === 'url' && (

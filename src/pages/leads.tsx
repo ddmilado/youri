@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Trash2, Eye, Share2 } from 'lucide-react'
+import { Eye, Share2, Trash2, Users } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getLeads, deleteProjectLeads } from '@/lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
@@ -19,17 +19,17 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 
 const StatusBadge = ({ status }: { status: string }) => {
-    let colorClass = "text-gray-600 bg-gray-100 border-gray-200"
-    if (status === 'won') colorClass = "text-green-700 bg-green-50 border-green-200"
-    else if (status === 'new') colorClass = "text-blue-700 bg-blue-50 border-blue-200"
-    else if (status === 'qualified') colorClass = "text-purple-700 bg-purple-50 border-purple-200"
-    else if (status === 'contacted') colorClass = "text-yellow-700 bg-yellow-50 border-yellow-200"
-    else if (status === 'lost') colorClass = "text-red-700 bg-red-50 border-red-200"
+    let colorClass = "text-slate-700 bg-slate-100 border-slate-200 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-700"
+    if (status === 'won') colorClass = "text-teal-700 bg-teal-50 border-teal-200 dark:text-teal-300 dark:bg-teal-950/40 dark:border-teal-800"
+    else if (status === 'new') colorClass = "text-sky-700 bg-sky-50 border-sky-200 dark:text-sky-300 dark:bg-sky-950/40 dark:border-sky-800"
+    else if (status === 'qualified') colorClass = "text-indigo-700 bg-indigo-50 border-indigo-200 dark:text-indigo-300 dark:bg-indigo-950/40 dark:border-indigo-800"
+    else if (status === 'contacted') colorClass = "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800"
+    else if (status === 'lost') colorClass = "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-800"
 
     const label = status.charAt(0).toUpperCase() + status.slice(1)
 
     return (
-        <div className={`flex items-center gap-2 px-2.5 py-0.5 rounded-full border w-fit ${colorClass}`}>
+        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full border w-fit ${colorClass}`}>
             <span className="font-semibold text-xs">{label}</span>
         </div>
     )
@@ -71,18 +71,28 @@ export function LeadsPage() {
     }
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="app-page">
+            <header className="app-header">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Manage your potential opportunities and track progress.
+                    <p className="eyebrow">Pipeline</p>
+                    <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Leads</h1>
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                        Review companies promoted from audits and share opportunities with the team.
                     </p>
                 </div>
-            </div>
+                <div className="surface-panel flex w-full items-center gap-3 p-3 md:w-auto">
+                    <div className="grid h-10 w-10 place-items-center rounded-md bg-secondary/10 text-secondary">
+                        <Users className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold leading-none">{leads?.length || 0}</p>
+                        <p className="text-xs font-medium text-muted-foreground">Total leads</p>
+                    </div>
+                </div>
+            </header>
 
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="overflow-hidden">
+                <CardHeader className="flex flex-col gap-4 border-b border-border/80 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1.5">
                         <CardTitle>All Leads</CardTitle>
                         <CardDescription>View and manage leads identified from audits.</CardDescription>
@@ -152,11 +162,11 @@ export function LeadsPage() {
                                                 }}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">
+                                        <TableCell className="min-w-[180px] font-semibold">
                                             {lead.company_name || lead.title}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
-                                            <a href={lead.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                                        <TableCell className="max-w-[260px] truncate text-sm text-muted-foreground">
+                                            <a href={lead.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground hover:underline">
                                                 {lead.url}
                                             </a>
                                         </TableCell>
@@ -190,7 +200,6 @@ export function LeadsPage() {
                                                     size="sm"
                                                     variant="secondary"
                                                     asChild
-                                                    className="hover:bg-slate-200"
                                                 >
                                                     <Link to={`/leads/${lead.id}`} className="flex items-center gap-2">
                                                         <Eye className="h-4 w-4" />
@@ -203,8 +212,12 @@ export function LeadsPage() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
-                                        No leads found. Push leads from your audits in the Dashboard.
+                                    <TableCell colSpan={7} className="h-36 text-center">
+                                        <div className="mx-auto max-w-sm">
+                                            <Users className="mx-auto h-8 w-8 text-muted-foreground" />
+                                            <p className="mt-3 font-semibold">No leads yet</p>
+                                            <p className="mt-1 text-sm text-muted-foreground">Promote promising audit results from the Dashboard to build this list.</p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )}

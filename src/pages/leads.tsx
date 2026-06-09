@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Eye, Share2, Trash2, Users } from 'lucide-react'
+import { Eye, Mail, Share2, Trash2, Users } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getLeads, deleteProjectLeads } from '@/lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
@@ -204,6 +204,16 @@ export function LeadsPage() {
                                                     <Link to={`/leads/${lead.id}`} className="flex items-center gap-2">
                                                         <Eye className="h-4 w-4" />
                                                         <span>View</span>
+                                                    </Link>
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    asChild
+                                                >
+                                                    <Link to={`/leads/${lead.id}/email`} className="flex items-center gap-2">
+                                                        <Mail className="h-4 w-4" />
+                                                        <span>Email</span>
                                                     </Link>
                                                 </Button>
                                             </div>

@@ -367,7 +367,8 @@ For each issue, explain:
 - Why it matters for international/German customers.
 - What to fix.
 - The exact page URL, page area, short text snippet, confidence, and verification note.
-- Include screenshotUrl when Browser Use exposes a screenshot or evidence URL. If screenshots are not available, omit screenshotUrl.
+- Capture visual evidence for at least one concrete high/medium-severity problem if Browser Use exposes screenshot or evidence URLs.
+- Put that URL in finding.screenshotUrl and evidenceScreenshots. If no static screenshot URL is available, omit screenshotUrl and make the verification note specific enough that the Browser Use replay can be used as evidence.
 
 Return ONLY valid JSON matching this shape:
 {
@@ -413,7 +414,7 @@ Return ONLY valid JSON matching this shape:
   "actionList": ["priority next steps"],
   "priorityActionPlan": ["same or more detailed priority steps"],
   "evidenceScreenshots": [
-    {"label": "short label", "url": "screenshot or replay URL", "description": "what it proves"}
+    {"label": "short label", "url": "screenshot/evidence URL when available", "description": "what it proves"}
   ],
   "conclusion": "short closing paragraph",
   "score": 0

@@ -111,6 +111,13 @@ export function LeadDetailsPage() {
                         <Share2 className="h-4 w-4" /> Share
                     </Button>
                     {user && (
+                        <Button variant="secondary" size="sm" asChild className="flex items-center gap-2">
+                            <Link to={`/leads/${lead?.id}/email`}>
+                                <Mail className="h-4 w-4" /> Email
+                            </Link>
+                        </Button>
+                    )}
+                    {user && (
                         <>
                             <Button variant="outline" size="sm" onClick={() => setEnrichOpen(true)} className="flex items-center gap-2">
                                 <Wand2 className="h-4 w-4" /> Enrich

@@ -25,6 +25,7 @@ const queryClient = new QueryClient({
 const Dashboard = lazy(() => import('@/pages/dashboard').then(m => ({ default: m.DashboardPage })))
 const Leads = lazy(() => import('@/pages/leads').then(m => ({ default: m.LeadsPage })))
 const LeadDetails = lazy(() => import('@/pages/lead-details').then(m => ({ default: m.LeadDetailsPage })))
+const LeadEmail = lazy(() => import('@/pages/lead-email').then(m => ({ default: m.LeadEmailPage })))
 const NewAudit = lazy(() => import('@/pages/new-audit').then(m => ({ default: m.NewAuditPage })))
 const Report = lazy(() => import('@/pages/report').then(m => ({ default: m.ReportPage })))
 const Jobs = lazy(() => import('@/pages/jobs').then(m => ({ default: m.JobsPage })))
@@ -142,6 +143,18 @@ function App() {
                     <Suspense fallback={<LoadingFallback />}>
                       <LeadDetailsWrapper />
                     </Suspense>
+                  }
+                />
+                <Route
+                  path="/leads/:id/email"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <LeadEmail />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
                   }
                 />
                 <Route

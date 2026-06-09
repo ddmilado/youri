@@ -511,9 +511,16 @@ export async function runKeywordSearch(keywords: string, userId: string, searchI
     return data
   } catch (err: any) {
     clearTimeout(timeoutId)
-    // If aborted due to timeout, that's okay - search is likely processing
-    if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
-      console.log('Request timed out but search may be processing')
+    // Browser Use keyword searches are asynchronous. A noisy function response can still mean
+    // the session was accepted and results will arrive through polling/realtime.
+    if (
+      err?.name === 'AbortError' ||
+      err?.message?.includes('abort') ||
+      err?.message?.includes('timeout') ||
+      err?.message?.includes('FunctionsHttpError') ||
+      err?.message?.includes('Edge Function')
+    ) {
+      console.warn('Keyword search trigger returned a noisy response, treating as background start:', err)
       return { success: true, id: searchId, message: 'Search started in background' }
     }
     throw err

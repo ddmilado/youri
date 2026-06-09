@@ -67,6 +67,32 @@ export function NewAuditPage() {
     toast.info(isSearchComplete ? 'Search completed' : 'Search running in background')
   }
 
+  const checkKeywordResults = async (query: string) => {
+    if (!user?.id) return 0
+    const { count, error } = await supabase
+      .from('keyword_search_results')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('search_query', query)
+
+    if (error) {
+      console.warn('Keyword result check failed:', error)
+      return 0
+    }
+
+    return count || 0
+  }
+
+  const completeKeywordSearch = (searchId: string, count: number, message?: string) => {
+    setIsSearchComplete(true)
+    setSearchCompletionData({ count, message: message || 'Search complete!' })
+    updateTask(searchId, {
+      status: 'completed',
+      progress: 100,
+      statusMessage: message || 'Search complete!'
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -121,32 +147,39 @@ export function NewAuditPage() {
           const channel = supabase.channel(`search-status-${searchId}`)
             .on('broadcast', { event: 'status_update' }, ({ payload }) => {
               if (payload.status === 'completed') {
-                setIsSearchComplete(true)
-                setSearchCompletionData({ count: payload.count, message: payload.message })
+                completeKeywordSearch(searchId, payload.count || 0, payload.message)
                 toast.success(`Found ${payload.count || 0} companies!`)
-                updateTask(searchId, {
-                  status: 'completed',
-                  progress: 100,
-                  statusMessage: payload.message || 'Search complete!'
-                })
                 supabase.removeChannel(channel)
               } else if (payload.status === 'failed') {
-                setIsSearchProcessing(false)
-                setProcessingJobId(null)
-                updateTask(searchId, {
-                  status: 'failed',
-                  statusMessage: payload.message || 'Search failed'
+                checkKeywordResults(inputText).then((existingCount) => {
+                  if (existingCount > 0) {
+                    completeKeywordSearch(searchId, existingCount, 'Search complete!')
+                    toast.success(`Found ${existingCount} companies!`)
+                  } else {
+                    setIsSearchProcessing(false)
+                    setProcessingJobId(null)
+                    updateTask(searchId, {
+                      status: 'failed',
+                      statusMessage: payload.message || 'Search failed'
+                    })
+                    toast.error(payload.message || 'Search failed')
+                  }
+                  supabase.removeChannel(channel)
                 })
-                toast.error('Search failed')
-                supabase.removeChannel(channel)
               }
             })
             .subscribe()
         } else {
-          setIsSearchProcessing(false)
-          setProcessingJobId(null)
-          updateTask(searchId, { status: 'failed', statusMessage: result.error || 'Search failed' })
-          toast.error(result.error || 'Failed to start search')
+          const existingCount = await checkKeywordResults(inputText)
+          if (existingCount > 0) {
+            completeKeywordSearch(searchId, existingCount, 'Search complete!')
+            toast.success(`Found ${existingCount} companies!`)
+          } else {
+            setIsSearchProcessing(false)
+            setProcessingJobId(null)
+            updateTask(searchId, { status: 'failed', statusMessage: result.error || 'Search failed' })
+            toast.error(result.error || 'Failed to start search')
+          }
         }
       } else {
         // URL analysis workflow - supports multiple URLs

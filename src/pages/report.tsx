@@ -672,6 +672,11 @@ export function ReportPage() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
+                    {evidenceScreenshots.length === 0 && report?.browserUseLiveUrl && (
+                      <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground dark:border-slate-800 dark:bg-slate-900">
+                        No static screenshot URL was returned by Browser Use for this run. Use the replay link above to review the visual evidence.
+                      </p>
+                    )}
                     {evidenceScreenshots.slice(0, 4).map((item, index) => (
                       <a
                         key={`${item.url}-${index}`}

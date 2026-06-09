@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type Database } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,6 +35,7 @@ export function ProcessingOverlay({
     const [error, setError] = useState<string | null>(null)
     const [progressValue, setProgressValue] = useState(0)
     const [simulatedStep, setSimulatedStep] = useState(0)
+    const lastResumeCheckRef = useRef(0)
 
     const auditSteps = [
         'Initializing AI engine...',
@@ -75,6 +76,24 @@ export function ProcessingOverlay({
                 const updatedJob = data as Job
                 console.log('Job status:', updatedJob.status, 'message:', updatedJob.status_message)
                 setJob(updatedJob)
+
+                const browserUseSessionId = updatedJob.raw_data?.source === 'browser-use' ? updatedJob.raw_data?.session_id : null
+                if (updatedJob.status === 'processing' && browserUseSessionId) {
+                    const now = Date.now()
+                    if (now - lastResumeCheckRef.current > 15000) {
+                        lastResumeCheckRef.current = now
+                        supabase.functions.invoke('run-workflow', {
+                            body: {
+                                input_as_text: updatedJob.url,
+                                user_id: updatedJob.user_id,
+                                job_id: updatedJob.id,
+                                is_callback: true
+                            }
+                        }).catch((resumeError) => {
+                            console.warn('Browser Use resume check failed:', resumeError)
+                        })
+                    }
+                }
 
                 if (updatedJob.status === 'completed') {
                     console.log('Job completed! Report available:', !!updatedJob.report)

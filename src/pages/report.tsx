@@ -29,7 +29,11 @@ import {
   TrendingUp,
   User,
   Share2,
-  Phone
+  Phone,
+  Languages,
+  Globe2,
+  ShieldCheck,
+  Camera
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
@@ -48,6 +52,9 @@ export function ReportPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isExporting, setIsExporting] = useState(false)
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [reportLanguage, setReportLanguage] = useState<'en' | 'nl'>('en')
+  const [dutchReport, setDutchReport] = useState<Database['public']['Tables']['jobs']['Row']['report'] | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
   const { data: job, isLoading } = useQuery<Job>({
@@ -157,6 +164,44 @@ export function ReportPage() {
     }
   }
 
+  const handleToggleLanguage = async () => {
+    if (!job?.report) return
+
+    if (reportLanguage === 'nl') {
+      setReportLanguage('en')
+      return
+    }
+
+    if (dutchReport) {
+      setReportLanguage('nl')
+      return
+    }
+
+    setIsTranslating(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-report', {
+        body: {
+          report: job.report,
+          target_language: 'Dutch'
+        }
+      })
+
+      if (error) throw error
+      if (!data?.success || !data?.report) {
+        throw new Error(data?.error || 'Translation failed')
+      }
+
+      setDutchReport(data.report)
+      setReportLanguage('nl')
+      toast.success('Dutch report generated')
+    } catch (error) {
+      console.error('Report translation error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to translate report')
+    } finally {
+      setIsTranslating(false)
+    }
+  }
+
 
 
   if (isLoading) {
@@ -179,8 +224,9 @@ export function ReportPage() {
   }
 
   // Helper to determine deep audit vs legacy report
-  const isDeepAudit = job.report && 'sections' in job.report
-  const report = job.report
+  const report = reportLanguage === 'nl' && dutchReport ? dutchReport : job.report
+  const isDeepAudit = report && 'sections' in report
+  const legacyIssues = (report as { issues?: unknown[] } | null)?.issues
 
   // Calculate score if not present in report
   const auditScore = report?.score ?? (() => {
@@ -196,6 +242,12 @@ export function ReportPage() {
     })
     return Math.max(0, score)
   })()
+
+  const criticalIssues = report?.criticalIssues || []
+  const keyFindings = report?.keyFindings || []
+  const languageSummary = report?.languageSummary
+  const evidenceScreenshots = report?.evidenceScreenshots || []
+  const priorityActionPlan = report?.priorityActionPlan || report?.actionList || []
 
   // Severity helpers
   const getSeverityColor = (severity: string) => {
@@ -291,6 +343,12 @@ export function ReportPage() {
             {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
             Export
           </Button>
+          {job.report && (
+            <Button variant="outline" size="sm" onClick={handleToggleLanguage} disabled={isTranslating} className="h-8 text-xs">
+              {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Languages className="h-3 w-3 mr-1" />}
+              {reportLanguage === 'nl' ? 'English' : 'Dutch'}
+            </Button>
+          )}
           <a href={job.url.startsWith('http') ? job.url : `https://${job.url}`} target="_blank" rel="noopener noreferrer">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <ExternalLink className="h-4 w-4" />
@@ -309,6 +367,9 @@ export function ReportPage() {
               <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 <div className="flex-1 w-full">
                   <Badge className="mb-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 border-none">Analysis Complete</Badge>
+                  {reportLanguage === 'nl' && (
+                    <Badge className="mb-4 ml-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-100 border-none">Dutch Version</Badge>
+                  )}
                   <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white">Audit Overview</h2>
                   <p className="text-slate-200 leading-relaxed text-base md:text-lg opacity-90">
                     {report?.overview || "No overview available for this audit."}
@@ -341,6 +402,97 @@ export function ReportPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {(criticalIssues.length > 0 || keyFindings.length > 0 || languageSummary) && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {criticalIssues.length > 0 && (
+              <Card className="border-red-100 dark:border-red-900 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2 text-red-700 dark:text-red-300">
+                    <AlertCircle className="h-4 w-4" />
+                    Critical Issues
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                    {criticalIssues.slice(0, 5).map((issue, index) => (
+                      <li key={index} className="flex gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-red-500 flex-shrink-0"></span>
+                        <span>{issue}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {keyFindings.length > 0 && (
+              <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    Key Findings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                    {keyFindings.slice(0, 5).map((finding, index) => (
+                      <li key={index} className="flex gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                        <span>{finding}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {languageSummary && (
+              <Card className="border-blue-100 dark:border-blue-900 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Globe2 className="h-4 w-4 text-blue-600" />
+                    Localization Signals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {languageSummary.overallLocalizationRisk && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Risk:</span>
+                      <Badge variant="outline" className="capitalize">{String(languageSummary.overallLocalizationRisk)}</Badge>
+                    </div>
+                  )}
+                  {typeof languageSummary.languageSwitcherFound === 'boolean' && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Language switcher:</span>
+                      <span className="font-medium">{languageSummary.languageSwitcherFound ? 'Found' : 'Not found'}</span>
+                    </div>
+                  )}
+                  {languageSummary.primaryLanguagesDetected?.length ? (
+                    <div>
+                      <p className="text-muted-foreground mb-1">Languages detected</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {languageSummary.primaryLanguagesDetected.map((language) => (
+                          <Badge key={language} variant="secondary">{language}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {languageSummary.machineTranslationSignals?.length ? (
+                    <div>
+                      <p className="text-muted-foreground mb-1">Machine translation signals</p>
+                      <ul className="space-y-1 text-slate-700 dark:text-slate-300">
+                        {languageSummary.machineTranslationSignals.slice(0, 3).map((signal, index) => (
+                          <li key={index}>{signal}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* CONTENT SECTIONS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -423,6 +575,25 @@ export function ReportPage() {
                                   </div>
                                 )}
                               </div>
+                              {finding.screenshotUrl && (
+                                <a
+                                  href={finding.screenshotUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block overflow-hidden rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900"
+                                >
+                                  <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+                                    <Camera className="h-3.5 w-3.5" />
+                                    Evidence screenshot
+                                  </div>
+                                  <img
+                                    src={finding.screenshotUrl}
+                                    alt={`Evidence for ${finding.problem}`}
+                                    className="max-h-72 w-full object-contain bg-white"
+                                    loading="lazy"
+                                  />
+                                </a>
+                              )}
                               <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-md border border-emerald-100 dark:border-emerald-900/50">
                                 <CheckSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -440,7 +611,7 @@ export function ReportPage() {
               </motion.div>
             ))}
 
-            {!isDeepAudit && report?.issues && (
+            {!isDeepAudit && legacyIssues && (
               <Card>
                 <CardContent className="p-8 text-center text-muted-foreground">
                   This is a legacy report format. Findings are listed below.
@@ -464,14 +635,14 @@ export function ReportPage() {
                   </CardHeader>
                   <CardContent className="relative z-10 pt-4">
                     <ul className="space-y-3">
-                      {report?.actionList?.map((action, i) => (
+                      {priorityActionPlan.map((action, i) => (
                         <li key={i} className="flex items-start gap-3 text-sm group">
                           <div className="mt-0.5 h-5 w-5 rounded-full border-2 border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-white transition-colors cursor-pointer hover:bg-indigo-600 hover:border-indigo-600">
                           </div>
                           <span className="text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">{action}</span>
                         </li>
                       ))}
-                      {(!report?.actionList || report.actionList.length === 0) && (
+                      {priorityActionPlan.length === 0 && (
                         <li className="text-sm text-muted-foreground italic">No specific actions generated.</li>
                       )}
                     </ul>
@@ -479,6 +650,47 @@ export function ReportPage() {
                 </Card>
               </motion.div>
             </div>
+
+            {(evidenceScreenshots.length > 0 || report?.browserUseLiveUrl) && (
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <Camera className="h-4 w-4 text-slate-600" />
+                      Evidence
+                    </CardTitle>
+                    <CardDescription>Browser evidence used for this audit.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {report?.browserUseLiveUrl && (
+                      <a
+                        href={report.browserUseLiveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-3 rounded-md border border-slate-200 dark:border-slate-800 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-900"
+                      >
+                        <span>Browser Use replay</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {evidenceScreenshots.slice(0, 4).map((item, index) => (
+                      <a
+                        key={`${item.url}-${index}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
+                      >
+                        <div className="px-3 py-2">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{item.label || `Evidence ${index + 1}`}</p>
+                          {item.description && <p className="text-xs text-muted-foreground mt-1">{item.description}</p>}
+                        </div>
+                      </a>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
             {/* COMPANY PROFILE */}
             {report?.companyInfo && (
@@ -624,4 +836,3 @@ export function ReportPage() {
     </div>
   )
 }
-

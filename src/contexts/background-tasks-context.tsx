@@ -30,6 +30,7 @@ const BackgroundTasksContext = createContext<BackgroundTasksContextType | null>(
 export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
     const [tasks, setTasks] = useState<BackgroundTask[]>([])
     const subscriptions = useRef<Record<string, any>>({})
+    const resumeChecks = useRef<Record<string, number>>({})
 
     const addTask = useCallback((task: Omit<BackgroundTask, 'createdAt'>) => {
         setTasks(prev => [...prev, { ...task, createdAt: new Date() }])
@@ -141,7 +142,7 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
             for (const task of activeAudits) {
                 const { data } = await supabase
                     .from('jobs')
-                    .select('status, status_message')
+                    .select('id, user_id, url, status, status_message, raw_data')
                     .eq('id', task.id)
                     .single()
 
@@ -150,6 +151,21 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
                         status: data.status,
                         statusMessage: data.status_message || (data.status === 'completed' ? 'Audit Complete' : 'Audit Failed')
                     })
+                } else if (data?.status === 'processing' && data.raw_data?.source === 'browser-use' && data.raw_data?.session_id) {
+                    const now = Date.now()
+                    if (!resumeChecks.current[task.id] || now - resumeChecks.current[task.id] > 15000) {
+                        resumeChecks.current[task.id] = now
+                        supabase.functions.invoke('run-workflow', {
+                            body: {
+                                input_as_text: data.url,
+                                user_id: data.user_id,
+                                job_id: data.id,
+                                is_callback: true
+                            }
+                        }).catch((error) => {
+                            console.warn(`Browser Use resume check failed for ${task.id}:`, error)
+                        })
+                    }
                 }
             }
         }, 15000)

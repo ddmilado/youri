@@ -24,6 +24,8 @@ export type AuditSection = {
     sourceSnippet?: string       // Exact text excerpt (30-50 chars)
     confidence?: number          // 0-100 confidence score
     verificationNote?: string
+    screenshotUrl?: string
+    impact?: string
   }>
 }
 
@@ -54,6 +56,24 @@ export type JobReport = {
   companyInfo?: CompanyInfo
   salesEmail?: string
   score?: number
+  criticalIssues?: string[]
+  keyFindings?: string[]
+  priorityActionPlan?: string[]
+  languageSummary?: {
+    primaryLanguagesDetected?: string[]
+    targetMarketsDetected?: string[]
+    languageSwitcherFound?: boolean
+    machineTranslationSignals?: string[]
+    overallLocalizationRisk?: string
+    [key: string]: unknown
+  }
+  evidenceScreenshots?: Array<{
+    label: string
+    url: string
+    description?: string
+  }>
+  browserUseSessionId?: string
+  browserUseLiveUrl?: string
   // keeping legacy fields optional for backward compatibility if needed
   issuesCount?: number
   issues?: Array<{
@@ -93,6 +113,8 @@ export type Database = {
           url: string
           status: 'pending' | 'processing' | 'completed' | 'failed'
           report: JobReport | null
+          raw_data?: any | null
+          crawl_status?: string | null
           screenshot_url: string | null
           status_message: string | null
           created_at: string
@@ -109,6 +131,8 @@ export type Database = {
           url: string
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           report?: JobReport | null
+          raw_data?: any | null
+          crawl_status?: string | null
           screenshot_url?: string | null
           status_message?: string | null
           created_at?: string
@@ -125,6 +149,8 @@ export type Database = {
           url?: string
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           report?: JobReport | null
+          raw_data?: any | null
+          crawl_status?: string | null
           screenshot_url?: string | null
           status_message?: string | null
           created_at?: string

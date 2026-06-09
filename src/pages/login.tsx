@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Mail, ShieldCheck, Sparkles } from 'lucide-react'
+import { BarChart3, Loader2, Mail, ShieldCheck } from 'lucide-react'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -58,42 +58,50 @@ export function LoginPage() {
   }
 
   return (
-    <div className="app-shell min-h-screen p-4 md:grid md:place-items-center">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm md:grid-cols-[1fr_28rem]">
-        <section className="hidden bg-primary p-10 text-primary-foreground md:flex md:flex-col md:justify-between">
+    <div className="min-h-screen bg-background p-4 md:grid md:place-items-center">
+      <div className="grid w-full max-w-6xl overflow-hidden rounded-lg border border-border/70 bg-card shadow-lg shadow-slate-950/5 md:grid-cols-[1fr_28rem]">
+        <section className="hidden bg-slate-950 p-10 text-white md:flex md:flex-col md:justify-between">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-lg bg-white">
               <img src="/logo.svg" alt="YourIntAI Logo" className="h-8 w-8 object-contain" />
             </div>
             <div>
               <p className="text-lg font-bold">YourIntAI</p>
-              <p className="text-xs text-primary-foreground/70">Lead intelligence workspace</p>
+              <p className="text-xs text-white/60">Enterprise lead intelligence</p>
             </div>
           </Link>
           <div>
-            <p className="eyebrow text-secondary">Workspace access</p>
-            <h1 className="mt-3 max-w-md text-4xl font-bold tracking-tight text-balance">Turn audits and search signals into a cleaner lead pipeline.</h1>
-            <div className="mt-8 grid gap-3 text-sm text-primary-foreground/80">
-              <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-secondary" /> AI-assisted discovery workflows</div>
-              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-secondary" /> Shared team pipeline and audit history</div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Secure workspace access</p>
+            <h1 className="mt-3 max-w-md text-4xl font-bold tracking-tight text-balance">Audit-led prospecting for international growth teams.</h1>
+            <p className="mt-4 max-w-md text-sm leading-6 text-white/70">
+              Centralize website audits, lead qualification, outreach context, and team review in one operating workspace.
+            </p>
+            <div className="mt-8 grid gap-3 text-sm text-white/75">
+              <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-secondary" /> Prioritized audit and conversion signals</div>
+              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-secondary" /> Shared reports, leads, and outreach context</div>
             </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 border-t border-white/10 pt-6 text-xs text-white/60">
+            <div><p className="text-lg font-bold text-white">3</p><p>research modes</p></div>
+            <div><p className="text-lg font-bold text-white">24/7</p><p>audit history</p></div>
+            <div><p className="text-lg font-bold text-white">Team</p><p>ready</p></div>
           </div>
         </section>
 
         <Card className="rounded-none border-0 shadow-none">
-          <CardHeader className="space-y-1 pt-8">
+          <CardHeader className="space-y-1 px-6 pt-8 md:px-8">
             <Link to="/dashboard" className="flex justify-center mb-4 hover:opacity-80 transition-opacity md:hidden">
               <div className="grid h-14 w-14 place-items-center rounded-lg border border-border bg-white">
                 <img src="/logo.svg" alt="YourIntAI Logo" className="h-10 w-10 object-contain" />
               </div>
             </Link>
-            <CardTitle className="text-center text-3xl font-bold">Welcome back</CardTitle>
-            <CardDescription className="text-center">Sign in to your YourIntAI account</CardDescription>
+            <CardTitle className="text-center text-2xl font-bold">Sign in to workspace</CardTitle>
+            <CardDescription className="text-center">Access audit reports, leads, and team workflows.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-8 md:px-8">
             {magicLinkSent ? (
               <div className="text-center space-y-4">
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
                   <Mail className="h-6 w-6 text-secondary" />
                 </div>
               <div>

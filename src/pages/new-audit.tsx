@@ -273,7 +273,7 @@ export function NewAuditPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
           <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border/80">
+            <CardHeader className="border-b border-border/70 bg-muted/20">
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-lg bg-secondary/10 text-secondary">
                   <Sparkles className="h-5 w-5" />
@@ -285,7 +285,7 @@ export function NewAuditPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="mb-6 grid gap-2 rounded-lg bg-muted/70 p-1 sm:grid-cols-2">
+              <div className="mb-6 grid gap-2 rounded-lg border border-border/70 bg-muted/40 p-1 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setWorkflowType('url')}
@@ -332,7 +332,7 @@ export function NewAuditPage() {
                     onChange={(e) => setInputText(e.target.value)}
                     required
                     disabled={loading}
-                    className="min-h-[180px] resize-y text-base leading-7"
+                    className="min-h-[190px] resize-y border-border/80 bg-card/80 text-base leading-7 shadow-inner"
                     rows={7}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -367,11 +367,11 @@ export function NewAuditPage() {
           <aside className="surface-panel h-fit p-5">
             <p className="text-sm font-semibold">Workflow Notes</p>
             <div className="mt-4 space-y-4 text-sm text-muted-foreground">
-              <div>
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                 <p className="font-semibold text-foreground">URL Analysis</p>
                 <p className="mt-1">Best for known companies or a short prospect list that needs deeper inspection.</p>
               </div>
-              <div>
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                 <p className="font-semibold text-foreground">Keyword Search</p>
                 <p className="mt-1">Best for finding new companies from market, region, or industry signals.</p>
               </div>

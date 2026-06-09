@@ -54,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell min-h-screen flex flex-col">
       {/* Mobile Top Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/80 z-50 flex items-center px-4 justify-between transition-all duration-200">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-xl border-b border-border/70 z-50 flex items-center px-4 justify-between transition-all duration-200">
         <Link to="/dashboard" className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-md border border-border bg-white dark:bg-slate-950">
             <img src="/logo.svg" alt="Logo" className="h-5 w-5 object-contain" />
@@ -73,7 +73,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="p-5 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between border-b border-border/60">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-white shadow-sm dark:bg-slate-950">
               <img src="/logo.svg" alt="Logo" className="h-7 w-7 object-contain" />
@@ -89,20 +89,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
 
-        <nav className="px-3 space-y-1.5 mt-2">
+        <nav className="px-3 space-y-1.5 mt-4">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path)
             return (
               <Link key={item.path} to={item.path}>
                 <Button
-                  variant="ghost"
+                  variant={item.path === '/new' ? 'secondary' : 'ghost'}
                   className={cn(
-                    'h-10 w-full justify-start relative overflow-hidden px-3 text-muted-foreground',
-                    isActive && 'bg-secondary/10 text-foreground shadow-sm'
+                    'h-10 w-full justify-start relative overflow-hidden px-3',
+                    item.path === '/new' && 'mb-3 text-secondary-foreground shadow-sm',
+                    item.path !== '/new' && 'text-muted-foreground',
+                    isActive && item.path !== '/new' && 'bg-secondary/10 text-foreground',
+                    isActive && item.path === '/new' && 'ring-2 ring-secondary/25'
                   )}
                 >
-                  {isActive && <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-secondary" />}
-                  <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-secondary" : "text-muted-foreground")} />
+                  {isActive && item.path !== '/new' && <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-secondary" />}
+                  <item.icon className={cn(
+                    "mr-3 h-4 w-4",
+                    item.path === '/new' ? "text-secondary-foreground" : isActive ? "text-secondary" : "text-muted-foreground"
+                  )} />
                   {item.label}
                 </Button>
               </Link>
@@ -132,7 +138,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/80 pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/70 pb-safe">
         <div className="flex items-center justify-between px-2 h-[3.5rem] pb-1">
           {mobileNavItems.map((item, index) => {
             const isActive = item.path && location.pathname.startsWith(item.path)

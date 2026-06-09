@@ -273,34 +273,28 @@ export function ProcessingOverlay({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-[12px] bg-slate-950/40"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-[10px] bg-slate-950/45"
         >
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
-            </div>
-
             <motion.div
                 initial={{ scale: 0.9, opacity: 0, y: 10 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ type: 'spring', damping: 20, stiffness: 100 }}
                 className="w-full max-w-md relative"
             >
-                <Card className="relative border-emerald-500/20 shadow-[0_0_50px_-12px_rgba(16,185,129,0.15)] bg-white/80 dark:bg-slate-900/80 border-2 overflow-hidden backdrop-blur-md">
-                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50" />
+                <Card className="relative border-border bg-white/95 dark:bg-slate-900/95 overflow-hidden backdrop-blur-md">
 
                     <CardContent className="p-8 flex flex-col items-center text-center">
                         <div className="relative mb-6">
-                            <div className={cn("absolute inset-0 blur-xl rounded-full animate-pulse", isFailed ? "bg-red-500/20" : "bg-blue-500/20")} />
-                            <div className={cn("relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3",
-                                isFailed ? "bg-gradient-to-br from-red-400 to-red-600" : "bg-gradient-to-br from-emerald-400 to-emerald-600"
+                            <div className={cn("relative w-12 h-12 rounded-lg flex items-center justify-center shadow-sm",
+                                isFailed ? "bg-red-600" : "bg-emerald-600"
                             )}>
-                                {isFailed ? <X className="h-6 w-6 text-white" /> : <Sparkles className="h-6 w-6 text-white animate-pulse" />}
+                                {isFailed ? <X className="h-6 w-6 text-white" /> : <Sparkles className="h-6 w-6 text-white" />}
                             </div>
                         </div>
 
                         <div className="space-y-4 w-full">
                             <div className="space-y-1">
-                                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
+                                <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
                                     {isFailed ? 'Failed' : isCompleted ? 'Finished' : (type === 'audit' ? 'Deep Audit' : 'Keyword Search')}
                                 </h3>
                                 <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -319,8 +313,8 @@ export function ProcessingOverlay({
                                         exit={{ opacity: 0, scale: 1.05 }}
                                         className="min-h-[40px] flex items-center justify-center"
                                     >
-                                        <p className={cn("text-lg font-bold bg-clip-text text-transparent leading-snug px-2",
-                                            isFailed ? "bg-gradient-to-r from-red-600 to-red-400" : "bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400"
+                                        <p className={cn("text-base font-semibold leading-snug px-2",
+                                            isFailed ? "text-red-600" : "text-slate-800 dark:text-slate-100"
                                         )}>
                                             {isFailed ? 'Analysis encountered an error.' : isCompleted ? 'Analysis Complete' : (job?.status_message || loadingSteps[simulatedStep])}
                                         </p>
@@ -343,7 +337,7 @@ export function ProcessingOverlay({
                                     <div className="flex justify-center items-center gap-2">
                                         <Loader2 className="h-3 w-3 animate-spin text-emerald-500" />
                                         <span className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 animate-pulse">
-                                            Processing Squad Live
+                                            Processing
                                         </span>
                                     </div>
                                 )}
@@ -358,7 +352,7 @@ export function ProcessingOverlay({
                             >
                                 <Button
                                     onClick={() => navigate(`/report/${jobId}`)}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest h-14 rounded-2xl shadow-[0_10px_30px_-10px_rgba(16,185,129,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-12 rounded-lg shadow-sm"
                                 >
                                     Enter Report Explorer
                                 </Button>

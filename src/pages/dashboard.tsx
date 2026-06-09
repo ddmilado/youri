@@ -60,7 +60,7 @@ const MetricCard = ({
     <CardContent className="p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
           <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
         </div>
         <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${tone}`}>
@@ -176,12 +176,20 @@ export function DashboardPage() {
               Track audits, convert useful findings into leads, and keep an eye on team search activity.
             </p>
           </div>
-          <Link to="/new">
-            <Button className="w-full md:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              New Analysis
-            </Button>
-          </Link>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Link to="/new" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                New Analysis
+              </Button>
+            </Link>
+            <Link to="/jobs" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto">
+                <History className="mr-2 h-4 w-4" />
+                View Results
+              </Button>
+            </Link>
+          </div>
         </header>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">

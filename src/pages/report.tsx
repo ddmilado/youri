@@ -361,9 +361,8 @@ export function ReportPage() {
 
         {/* OVERVIEW HERO */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Card className="border-none shadow-md overflow-hidden bg-gradient-to-br from-indigo-900 to-slate-900 text-white">
-            <div className="absolute top-0 right-0 p-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <CardContent className="p-6 md:p-8 relative z-10">
+          <Card className="overflow-hidden border-slate-800 bg-slate-950 text-white shadow-md">
+            <CardContent className="p-6 md:p-8">
               <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 <div className="flex-1 w-full">
                   <Badge className="mb-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 border-none">Analysis Complete</Badge>
@@ -388,7 +387,7 @@ export function ReportPage() {
                 </div>
 
                 {/* Score Card */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center w-full md:min-w-[200px] md:w-auto border border-white/10 mt-4 md:mt-0">
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 flex flex-col items-center justify-center w-full md:min-w-[200px] md:w-auto border border-white/10 mt-4 md:mt-0">
                   <span className="text-slate-300 text-sm font-medium mb-2">Audit Score</span>
                   <div className="text-4xl md:text-5xl font-bold text-white mb-1">
                     {job.status === 'completed' ? auditScore : 0}

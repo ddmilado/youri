@@ -69,25 +69,35 @@
   }
 
   .app-shell {
-    background:
-      radial-gradient(circle at top left, hsl(var(--secondary) / 0.1), transparent 30rem),
-      linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.35));
+    background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.28));
   }
 
   .app-page {
-    @apply mx-auto w-full max-w-7xl px-4 py-5 md:px-6 lg:px-8 lg:py-7;
+    @apply mx-auto w-full max-w-7xl px-4 py-5 md:px-6 lg:px-8 lg:py-8;
   }
 
   .app-header {
-    @apply mb-6 flex flex-col gap-4 border-b border-border/80 pb-5 md:flex-row md:items-end md:justify-between;
+    @apply mb-6 flex flex-col gap-4 border-b border-border/70 pb-5 md:flex-row md:items-end md:justify-between;
   }
 
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.16em] text-secondary;
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-secondary;
   }
 
   .surface-panel {
-    @apply rounded-lg border border-border/80 bg-card/95 shadow-sm;
+    @apply rounded-lg border border-border/70 bg-card/95 shadow-sm;
+  }
+
+  .section-band {
+    @apply rounded-lg border border-border/70 bg-card/80 shadow-sm;
+  }
+
+  .subtle-divider {
+    @apply border-border/70;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
   .text-balance {

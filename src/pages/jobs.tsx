@@ -330,7 +330,7 @@ function JobsPageContent() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-700 border-green-200'
-      case 'processing': return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'processing': return 'bg-info/10 text-info border-info/25'
       case 'failed': return 'bg-red-100 text-red-700 border-red-200'
       default: return 'bg-gray-100 text-gray-700'
     }
@@ -361,7 +361,7 @@ function JobsPageContent() {
       } else {
         toast.info('Report is now private.')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update share settings')
     }
   }
@@ -431,7 +431,7 @@ function JobsPageContent() {
     return data.slice(start, start + ITEMS_PER_PAGE)
   }
 
-  const getTotalPages = (data: any[] | undefined): number => {
+  const getTotalPages = (data: unknown[] | undefined): number => {
     if (!data) return 1
     return Math.ceil(data.length / ITEMS_PER_PAGE)
   }
@@ -502,24 +502,34 @@ function JobsPageContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:h-16 items-center border-b border-border px-4 md:px-6 bg-background flex-shrink-0 shadow-sm py-4 md:py-0 gap-4">
-        <h1 className="text-lg font-semibold md:text-xl w-full md:w-auto text-left">Audit Results</h1>
+      <header className="app-page app-header">
+        <div>
+          <p className="eyebrow">Evidence library</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] md:text-4xl">Research results</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Review completed website audits, discovery searches, and the evidence Hermes returned.</p>
+        </div>
         <div className="ml-auto flex items-center gap-2 w-full md:w-auto justify-end">
           <Link to="/new" className="w-full md:w-auto">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white w-full md:w-auto">
+            <Button className="w-full md:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              New Project
+              Start research
             </Button>
           </Link>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="app-page pt-0">
         {/* Tab Navigation */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full sm:w-auto">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              if (value === 'audits' || value === 'searches') setActiveTab(value)
+            }}
+            className="w-full sm:w-auto"
+          >
             <TabsList className="bg-muted/50 p-1">
               <TabsTrigger value="audits" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 Site Audits
@@ -532,11 +542,11 @@ function JobsPageContent() {
 
           {/* Bulk Actions */}
           {getSelectedCount() > 0 && (
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.045] px-3 py-2">
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 w-6 p-0 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"
+                className="h-8 min-h-8 w-8 p-0"
                 onClick={handleCancelSelection}
                 title="Cancel Selection"
               >
@@ -550,7 +560,7 @@ function JobsPageContent() {
                   variant="outline"
                   onClick={handleAddToLeads}
                   disabled={isCreatingLeads}
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 border-none"
+                  className="border-none"
                 >
                   {isCreatingLeads ? (
                     <>
@@ -632,7 +642,7 @@ function JobsPageContent() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{result.company_name}</div>
-                            <a href={result.website} target="_blank" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                            <a href={result.website} target="_blank" className="flex items-center gap-1 font-mono text-[11px] text-primary hover:underline">
                               {result.website} <ExternalLink className="h-2 w-2" />
                             </a>
                           </TableCell>
@@ -653,7 +663,7 @@ function JobsPageContent() {
                           </TableCell>
                           <TableCell className="text-sm">
                             {result.user_id === user?.id ? (
-                              <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
+                              <Badge variant="outline" className="h-5 text-[10px] font-normal">You</Badge>
                             ) : (
                               <span className="text-muted-foreground">{result.creator_name || 'Team Member'}</span>
                             )}
@@ -731,7 +741,7 @@ function JobsPageContent() {
                           <TableCell className="font-medium">{job.title}</TableCell>
                           <TableCell>
                             {job.user_id === user?.id ? (
-                              <Badge variant="outline" className="text-[10px] h-5 font-normal bg-slate-50 text-slate-500 border-slate-200">You</Badge>
+                              <Badge variant="outline" className="h-5 text-[10px] font-normal">You</Badge>
                             ) : (
                               <span className="text-sm text-muted-foreground">{job.creator_name || 'Team Member'}</span>
                             )}
@@ -755,7 +765,7 @@ function JobsPageContent() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleShare(job)}
-                                  className={cn(job.is_public && "text-emerald-600 bg-emerald-50")}
+                                  className={cn(job.is_public && "bg-success/10 text-success")}
                                 >
                                   <Share2 className="h-4 w-4" />
                                 </Button>

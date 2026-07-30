@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type Database } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, Sparkles, X, Minimize2 } from 'lucide-react'
+import { Check, CheckCircle2, Globe2, Loader2, Search, X, Minimize2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -31,26 +31,25 @@ export function ProcessingOverlay({
     onManualComplete
 }: ProcessingOverlayProps) {
     const navigate = useNavigate()
-    const [job, setJob] = useState<Job | null>(null)
+    const [job, setJob] = useState<Partial<Job> | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [progressValue, setProgressValue] = useState(0)
     const [simulatedStep, setSimulatedStep] = useState(0)
-    const lastResumeCheckRef = useRef(0)
 
     const auditSteps = [
-        'Initializing AI engine...',
-        'Scanning website structure...',
-        'Analyzing legal compliance...',
-        'Checking UX & mobile responsiveness...',
-        'Compiling final deep audit report...',
+        'Preparing the browser session',
+        'Navigating the website',
+        'Inspecting key journeys and claims',
+        'Collecting evidence from live pages',
+        'Structuring the audit report',
     ]
 
     const searchSteps = [
-        'Deploying discovery crawlers...',
-        'Searching Global & German indices...',
-        'Filtering for high-quality leads...',
-        'Extracting company profiles...',
-        'Finalizing lead discovery batch...',
+        'Interpreting the search brief',
+        'Searching the live web',
+        'Opening candidate websites',
+        'Verifying companies against the brief',
+        'Structuring the discovery results',
     ]
 
     const loadingSteps = type === 'audit' ? auditSteps : searchSteps
@@ -71,29 +70,11 @@ export function ProcessingOverlay({
                         console.error('Error fetching job:', jobError)
                         setError('Could not find this analysis job.')
                     }
-                    return
+                    return null
                 }
                 const updatedJob = data as Job
                 console.log('Job status:', updatedJob.status, 'message:', updatedJob.status_message)
                 setJob(updatedJob)
-
-                const browserUseSessionId = updatedJob.raw_data?.source === 'browser-use' ? updatedJob.raw_data?.session_id : null
-                if (updatedJob.status === 'processing' && browserUseSessionId) {
-                    const now = Date.now()
-                    if (now - lastResumeCheckRef.current > 15000) {
-                        lastResumeCheckRef.current = now
-                        supabase.functions.invoke('run-workflow', {
-                            body: {
-                                input_as_text: updatedJob.url,
-                                user_id: updatedJob.user_id,
-                                job_id: updatedJob.id,
-                                is_callback: true
-                            }
-                        }).catch((resumeError) => {
-                            console.warn('Browser Use resume check failed:', resumeError)
-                        })
-                    }
-                }
 
                 if (updatedJob.status === 'completed') {
                     console.log('Job completed! Report available:', !!updatedJob.report)
@@ -104,6 +85,7 @@ export function ProcessingOverlay({
                     console.log('Job failed:', updatedJob.status_message)
                     setError(updatedJob.status_message || 'The analysis failed. Please try again or check the URL.')
                 }
+                return updatedJob
             }
 
             fetchJob()
@@ -148,9 +130,9 @@ export function ProcessingOverlay({
             // Timeout fallback - show error after 5 minutes if still processing
             const timeout = setTimeout(() => {
                 console.log('Audit timeout - checking final status')
-                fetchJob(false).then(() => {
+                fetchJob(false).then((latestJob) => {
                     // If still processing after 5 minutes, show a warning
-                    if (job?.status === 'processing' || job?.status === 'pending') {
+                    if (latestJob?.status === 'processing' || latestJob?.status === 'pending') {
                         console.log('Audit still processing after timeout')
                         toast.warning('Audit is taking longer than expected. Check the Site Audits tab for status.')
                     }
@@ -166,47 +148,58 @@ export function ProcessingOverlay({
 
         if (type === 'search') {
             console.log('Setting up search monitoring for jobId:', jobId)
-            // Initialize a mock job object for search - don't try to fetch from jobs table
             setJob({
                 id: jobId,
                 status: 'processing',
                 status_message: 'Initializing search...',
                 title: manualSubtitle || 'Keyword Search',
                 url: manualSubtitle || 'Keyword Search'
-            } as any)
+            })
+
+            let completionHandled = false
+            const handleCompletedSearch = () => {
+                if (completionHandled) return
+                completionHandled = true
+                setProgressValue(100)
+                if (onManualComplete) setTimeout(onManualComplete, 1500)
+            }
 
             const channel = supabase
                 .channel(`search-status-${jobId}`)
                 .on('broadcast', { event: 'status_update' }, ({ payload }) => {
                     console.log('Search broadcast received:', payload)
                     setJob(prev => ({
-                        ...prev,
+                        ...(prev || {}),
                         status_message: payload.message,
                         status: payload.status
-                    } as any))
+                    }))
 
-                    // Auto-complete when search is done
-                    if (payload.status === 'completed' && onManualComplete) {
-                        setProgressValue(100)
-                        setTimeout(() => {
-                            onManualComplete()
-                        }, 1500)
-                    }
+                    if (payload.status === 'completed') handleCompletedSearch()
+                    if (payload.status === 'failed') setError(payload.message || 'Hermes search failed')
                 })
                 .subscribe()
 
-            // Timeout fallback - auto-complete after 4 minutes if no broadcast
-            const timeout = setTimeout(() => {
-                console.log('Search timeout - auto-completing')
-                if (onManualComplete) {
-                    setProgressValue(100)
-                    onManualComplete()
+            const pollSearch = async () => {
+                const { data } = await supabase
+                    .from('hermes_agent_jobs')
+                    .select('status, error')
+                    .eq('job_id', jobId)
+                    .single()
+
+                if (data?.status === 'completed') {
+                    setJob(prev => ({ ...(prev || {}), status: 'completed', status_message: 'Search complete!' }))
+                    handleCompletedSearch()
+                } else if (data?.status === 'failed') {
+                    setJob(prev => ({ ...(prev || {}), status: 'failed', status_message: data.error }))
+                    setError(data.error || 'Hermes search failed')
                 }
-            }, 240000)
+            }
+            pollSearch()
+            const pollInterval = setInterval(pollSearch, 5000)
 
             return () => {
                 supabase.removeChannel(channel)
-                clearTimeout(timeout)
+                clearInterval(pollInterval)
             }
         }
     }, [jobId, navigate, type, onManualComplete, manualSubtitle])
@@ -245,7 +238,7 @@ export function ProcessingOverlay({
             if (onManualComplete) onManualComplete()
         }
         if (task && task.status === 'completed' && type === 'audit' && job?.status !== 'completed') {
-            setJob(prev => ({ ...prev, status: 'completed' } as any))
+            setJob(prev => ({ ...(prev || {}), status: 'completed' }))
         }
     }, [jobId, getTask, type, job?.status, onManualComplete])
 
@@ -264,119 +257,109 @@ export function ProcessingOverlay({
     const isFailed = type === 'audit' ? (job?.status === 'failed') : false
     const isFinished = isCompleted || isFailed
 
-    if (error) {
-        toast.error(error)
-    }
+    useEffect(() => {
+        if (error) toast.error(error)
+    }, [error])
 
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-[10px] bg-slate-950/45"
+            transition={{ duration: 0.16 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[3px] sm:p-6"
         >
             <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 10 }}
+                initial={{ scale: 0.96, opacity: 0, y: 8 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-                className="w-full max-w-md relative"
+                exit={{ scale: 0.98, opacity: 0, y: 4 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="relative w-full max-w-lg"
             >
-                <Card className="relative border-border bg-white/95 dark:bg-slate-900/95 overflow-hidden backdrop-blur-md">
-
-                    <CardContent className="p-8 flex flex-col items-center text-center">
-                        <div className="relative mb-6">
-                            <div className={cn("relative w-12 h-12 rounded-lg flex items-center justify-center shadow-sm",
-                                isFailed ? "bg-red-600" : "bg-emerald-600"
+                <Card className="relative overflow-hidden bg-card">
+                    <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <span className={cn(
+                                'grid h-10 w-10 shrink-0 place-items-center rounded-lg',
+                                isFailed ? 'bg-destructive/10 text-destructive' : isCompleted ? 'bg-success/10 text-success' : 'bg-info/10 text-info'
                             )}>
-                                {isFailed ? <X className="h-6 w-6 text-white" /> : <Sparkles className="h-6 w-6 text-white" />}
+                                {isFailed ? <X className="h-5 w-5" /> : isCompleted ? <CheckCircle2 className="h-5 w-5" /> : type === 'audit' ? <Globe2 className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                            </span>
+                            <div className="min-w-0">
+                                <p className="eyebrow">{type === 'audit' ? 'Hermes website audit' : 'Hermes company discovery'}</p>
+                                <h3 className="mt-1 text-lg font-bold tracking-tight">
+                                    {isFailed ? 'Research failed' : isCompleted ? 'Evidence ready' : 'Research in progress'}
+                                </h3>
+                                <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                                    {type === 'audit' ? job?.url || 'Preparing target…' : manualSubtitle}
+                                </p>
                             </div>
                         </div>
+                        <div className="flex shrink-0 gap-1">
+                            {onMinimize && !isFinished && (
+                                <Button variant="ghost" size="icon-sm" onClick={onMinimize} aria-label="Continue in background">
+                                    <Minimize2 className="h-4 w-4" />
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
 
-                        <div className="space-y-4 w-full">
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                                    {isFailed ? 'Failed' : isCompleted ? 'Finished' : (type === 'audit' ? 'Deep Audit' : 'Keyword Search')}
-                                </h3>
-                                <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                    <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
-                                        {type === 'audit' ? job?.url?.replace('https://', '').replace('http://', '') : manualSubtitle}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="py-2">
+                    <CardContent className="p-6">
+                        <div className="mb-6">
+                            <div className="mb-2 flex items-center justify-between gap-3">
                                 <AnimatePresence mode="wait">
-                                    <motion.div
+                                    <motion.p
                                         key={job?.status_message || (isCompleted ? 'complete' : simulatedStep)}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 1.05 }}
-                                        className="min-h-[40px] flex items-center justify-center"
+                                        initial={{ opacity: 0, y: 3 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -3 }}
+                                        transition={{ duration: 0.14 }}
+                                        className={cn('text-sm font-semibold', isFailed && 'text-destructive')}
                                     >
-                                        <p className={cn("text-base font-semibold leading-snug px-2",
-                                            isFailed ? "text-red-600" : "text-slate-800 dark:text-slate-100"
-                                        )}>
-                                            {isFailed ? 'Analysis encountered an error.' : isCompleted ? 'Analysis Complete' : (job?.status_message || loadingSteps[simulatedStep])}
-                                        </p>
-                                    </motion.div>
+                                        {isFailed ? error || 'Hermes could not complete this research.' : isCompleted ? 'The result has been returned to your workspace.' : job?.status_message || loadingSteps[simulatedStep]}
+                                    </motion.p>
                                 </AnimatePresence>
+                                <span className="font-mono text-[11px] text-muted-foreground">{Math.round(isFinished ? 100 : progressValue)}%</span>
                             </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                <motion.div
+                                    className={cn('h-full rounded-full', isFailed ? 'bg-destructive' : isCompleted ? 'bg-success' : 'bg-info')}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${isFinished ? 100 : progressValue}%` }}
+                                    transition={{ duration: 0.35 }}
+                                />
+                            </div>
+                            {!isFinished && <p className="mt-2 text-[11px] leading-5 text-muted-foreground">Progress is an estimate. The activity message above is returned by the live job when available.</p>}
+                        </div>
 
-                            <div className="w-full space-y-2">
-                                <div className="relative h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                                    <motion.div
-                                        className={cn("absolute top-0 left-0 h-full",
-                                            isFailed ? "bg-red-500" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600"
-                                        )}
-                                        initial={{ width: '0%' }}
-                                        animate={{ width: isFinished ? '100%' : `${progressValue}%` }}
-                                        transition={{ duration: 0.5 }}
-                                    />
-                                </div>
-                                {!isFinished && (
-                                    <div className="flex justify-center items-center gap-2">
-                                        <Loader2 className="h-3 w-3 animate-spin text-emerald-500" />
-                                        <span className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 animate-pulse">
-                                            Processing
+                        <div className="evidence-rail">
+                            {loadingSteps.map((step, index) => {
+                                const complete = isCompleted || index < simulatedStep
+                                const active = !isFinished && index === simulatedStep
+                                return (
+                                    <div key={step} className="relative pb-4 pl-7 last:pb-0">
+                                        <span className={cn(
+                                            'absolute left-0 top-0 grid h-5 w-5 place-items-center rounded-full border bg-card text-muted-foreground',
+                                            complete && 'border-success bg-success text-white',
+                                            active && 'border-info bg-info text-white'
+                                        )}>
+                                            {complete ? <Check className="h-3 w-3" /> : active ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
                                         </span>
+                                        <p className={cn('text-sm', (complete || active) ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{step}</p>
                                     </div>
-                                )}
-                            </div>
+                                )
+                            })}
                         </div>
 
                         {isCompleted && type === 'audit' && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="pt-6 w-full"
-                            >
-                                <Button
-                                    onClick={() => navigate(`/report/${jobId}`)}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-12 rounded-lg shadow-sm"
-                                >
-                                    Enter Report Explorer
-                                </Button>
-                            </motion.div>
+                            <Button onClick={() => navigate(`/report/${jobId}`)} className="mt-6 w-full">
+                                Open audit report
+                            </Button>
                         )}
                     </CardContent>
-
-                    <div className="absolute top-4 right-4 flex items-center gap-1">
-                        {onMinimize && (
-                            <button
-                                onClick={onMinimize}
-                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 group"
-                                title="Minimize to background"
-                            >
-                                <Minimize2 className="h-4 w-4 group-hover:scale-90 transition-transform duration-300" />
-                            </button>
-                        )}
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 group"
-                        >
-                            <X className="h-4 w-4 group-hover:rotate-90 transition-transform duration-300" />
-                        </button>
-                    </div>
                 </Card>
             </motion.div>
         </motion.div>

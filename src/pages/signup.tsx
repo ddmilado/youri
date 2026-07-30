@@ -43,15 +43,15 @@ export function SignupPage() {
               <img src="/logo.svg" alt="YourIntAI Logo" className="h-8 w-8 object-contain" />
             </div>
             <div>
-              <p className="text-lg font-bold">YourIntAI</p>
-              <p className="text-xs text-white/60">Enterprise lead intelligence</p>
+              <p className="text-lg font-bold">YourInt</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">Research OS</p>
             </div>
           </Link>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-secondary">Create workspace access</p>
-            <h1 className="mt-3 max-w-md text-4xl font-bold tracking-tight text-balance">Build an audit-backed prospecting workflow.</h1>
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-300">Create your research workspace</p>
+            <h1 className="mt-3 max-w-md text-4xl font-bold tracking-[-0.04em] text-balance">Turn live web evidence into better decisions.</h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/70">
-              Find companies, evaluate localization quality, and turn verified website issues into sharper outreach.
+              Browse company websites, evaluate their market presence, and keep every useful finding connected to its source.
             </p>
             <div className="mt-8 grid gap-3 text-sm text-white/75">
               <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-secondary" /> Analyze sites and extract sales context</div>

@@ -1,91 +1,116 @@
-# Youri Hermes Wrapper
+# Youri Hermes Worker
 
-This wrapper gives the Supabase keyword-search function a reliable worker endpoint.
+This service accepts signed jobs from Supabase, runs Hermes with browser tools on
+the VPS, and sends normalized results to the `hermes-callback` Edge Function.
 
-Why it exists:
+It supports:
 
-- Hermes `/webhooks/research` can accept signed jobs.
-- In webhook execution, Hermes could not reliably run tools or make outbound callback POSTs.
-- This wrapper owns the callback step, so Supabase can receive success, partial, or failure payloads every time.
+- `keyword_search`: browse and verify companies matching a research request.
+- `url_audit`: browse a website and return the existing Youri audit-report shape.
 
-## Run Locally
+The React frontend never communicates with this service directly.
+
+## 1. Prepare Hermes on the VPS
+
+Install and configure the current Hermes Agent release, then verify its browser
+tools:
+
+```bash
+hermes --version
+hermes setup --portal
+hermes setup tools
+hermes chat --toolsets browser,web --query \
+  "Open https://example.com and return its page title."
+```
+
+If you do not use Nous Portal, configure your chosen model provider and browser
+backend before continuing.
+
+## 2. Configure the worker
 
 ```bash
 cd hermes-wrapper
 npm install
-PORT=3001 \
-HERMES_WEBHOOK_SECRET="same-secret-set-in-supabase" \
-HERMES_CALLBACK_TOKEN="same-callback-token-set-in-supabase" \
-RESEARCH_COMMAND="node ./sample-research-command.js" \
+
+export PORT=3001
+export HERMES_WEBHOOK_SECRET="same-HMAC-secret-as-Supabase"
+export HERMES_CALLBACK_TOKEN="same-callback-token-as-Supabase"
+export HERMES_JOB_COMMAND="node ./hermes-job-command.js"
+export HERMES_TOOLSETS="browser,web"
+export MAX_CONCURRENT_JOBS=2
+export CALLBACK_ATTEMPTS=3
+export HERMES_JOB_TIMEOUT_MS=900000
+
 npm start
 ```
 
-Expose it:
+`HERMES_IGNORE_RULES` defaults to false. Only enable it if you deliberately want
+Hermes to ignore VPS-local agent rules.
+
+## 3. Public endpoint
+
+Put Caddy or Nginx in front of port 3001 and expose:
+
+```text
+POST https://hermes.example.com/jobs
+GET  https://hermes.example.com/health
+```
+
+Use HTTPS. Do not expose port 3001 directly to the internet.
+
+The health response includes active and queued job counts.
+
+## 4. Supabase configuration
+
+Apply `supabase/migrations/20260730_hermes_agent_jobs.sql`, either with
+`supabase db push` or through the SQL editor.
+
+Then configure:
 
 ```bash
-ngrok http 3001
+supabase secrets set \
+  HERMES_WEBHOOK_URL="https://hermes.example.com/jobs" \
+  HERMES_WEBHOOK_SECRET="same-HMAC-secret-as-the-worker" \
+  HERMES_CALLBACK_TOKEN="same-callback-token-as-the-worker"
 ```
 
-Set Supabase to call:
+Deploy:
 
 ```bash
-supabase secrets set HERMES_WEBHOOK_URL="https://your-ngrok-url.ngrok-free.dev/webhooks/research" --project-ref szlepolifltozkkrqudq
-supabase secrets set HERMES_WEBHOOK_SECRET="same-secret-set-in-wrapper" --project-ref szlepolifltozkkrqudq
+supabase functions deploy keyword-search
+supabase functions deploy run-workflow
+supabase functions deploy hermes-callback --no-verify-jwt
 ```
 
-## Research Command Contract
+The callback uses its own bearer token, so it must be reachable by the VPS and
+is deployed without Supabase JWT verification.
 
-The wrapper runs `RESEARCH_COMMAND` with the full Supabase job JSON in:
+## Job contract
 
-```txt
-YOURI_HERMES_JOB
-```
-
-The command must print strict JSON to stdout:
+Supabase sends:
 
 ```json
 {
-  "status": "success",
-  "results": [
-    {
-      "company_name": "Company Name",
-      "website": "https://example.com",
-      "company_description": "One sentence.",
-      "category": "supplements",
-      "country": "Netherlands",
-      "shipping_evidence": "Ships outside the Netherlands.",
-      "revenue_evidence": "Public scale signals indicate EUR 500k+.",
-      "revenue_estimate": "EUR 500k+ indicated",
-      "evidence_urls": ["https://example.com/shipping"]
-    }
-  ]
+  "job_id": "uuid",
+  "job_type": "keyword_search",
+  "user_id": "uuid",
+  "prompt": "task instructions",
+  "callback_url": "https://project.supabase.co/functions/v1/hermes-callback",
+  "metadata": {}
 }
 ```
 
-If the command fails or returns invalid JSON, the wrapper sends a failure callback to Supabase.
+The body is authenticated using:
 
-## Using Hermes CLI
-
-If the `hermes` CLI is available on the machine running the wrapper, use:
-
-```bash
-PORT=3001 \
-HERMES_WEBHOOK_SECRET="same-secret-set-in-supabase" \
-HERMES_CALLBACK_TOKEN="same-callback-token-set-in-supabase" \
-RESEARCH_COMMAND="node ./hermes-research-command.js" \
-npm start
+```text
+X-Hub-Signature-256: sha256=<HMAC-SHA256 of the exact request body>
 ```
 
-The script reads `YOURI_HERMES_JOB.prompt`, runs:
+The worker returns `202` after validation and runs the job asynchronously.
 
-```bash
-hermes --ignore-rules --toolsets browser,terminal,code_execution --oneshot "$prompt"
-```
+## Production note
 
-and expects Hermes to print the strict JSON object requested by the prompt.
-
-You can override toolsets if your Hermes install uses different names:
-
-```bash
-HERMES_TOOLSETS="browser,terminal,code_execution"
-```
+The current queue is in memory. It limits concurrency, but accepted jobs will be
+lost if the Node process restarts. Before relying on it for unattended
+production work, replace the in-memory queue with Redis/BullMQ, PostgreSQL, or
+another durable queue.

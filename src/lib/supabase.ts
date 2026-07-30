@@ -72,6 +72,9 @@ export type JobReport = {
     url: string
     description?: string
   }>
+  agentProvider?: 'hermes'
+  agentRunId?: string
+  agentTraceUrl?: string
   browserUseSessionId?: string
   browserUseLiveUrl?: string
   // keeping legacy fields optional for backward compatibility if needed
@@ -105,6 +108,37 @@ export type PeopleSearchResult = {
 export type Database = {
   public: {
     Tables: {
+      hermes_agent_jobs: {
+        Row: {
+          job_id: string
+          job_type: 'keyword_search' | 'url_audit'
+          user_id: string
+          status: 'submitted' | 'processing' | 'completed' | 'failed'
+          metadata: Record<string, unknown>
+          run_id: string | null
+          error: string | null
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          job_id: string
+          job_type: 'keyword_search' | 'url_audit'
+          user_id: string
+          status?: 'submitted' | 'processing' | 'completed' | 'failed'
+          metadata?: Record<string, unknown>
+          run_id?: string | null
+          error?: string | null
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          status?: 'submitted' | 'processing' | 'completed' | 'failed'
+          metadata?: Record<string, unknown>
+          run_id?: string | null
+          error?: string | null
+          completed_at?: string | null
+        }
+      }
       jobs: {
         Row: {
           id: string
@@ -511,8 +545,8 @@ export async function runKeywordSearch(keywords: string, userId: string, searchI
     return data
   } catch (err: any) {
     clearTimeout(timeoutId)
-    // Browser Use keyword searches are asynchronous. A noisy function response can still mean
-    // the session was accepted and results will arrive through polling/realtime.
+    // Hermes searches are asynchronous. A noisy function response can still mean
+    // the job was accepted and results will arrive through the callback/realtime channel.
     if (
       err?.name === 'AbortError' ||
       err?.message?.includes('abort') ||

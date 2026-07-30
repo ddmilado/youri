@@ -159,7 +159,7 @@ export function ReportPage() {
       } else {
         toast.info('Report is now private.')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update share settings')
     }
   }
@@ -206,15 +206,15 @@ export function ReportPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   if (!job) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Report not found</h2>
           <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
@@ -280,9 +280,9 @@ export function ReportPage() {
 
   if (job.status === 'processing' || job.status === 'pending') {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-muted-foreground animate-pulse">Waiting for analysis results to populate...</p>
           <Button variant="outline" size="sm" onClick={() => navigate(`/processing/${id}`)}>
             View Progress
@@ -294,10 +294,10 @@ export function ReportPage() {
 
   // Render main content
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+    <div className="min-h-screen bg-background pb-20">
 
       {/* Top Navigation */}
-      <header className="sticky top-14 lg:top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-4 md:px-6 h-auto min-h-[4rem] flex flex-col md:flex-row items-center justify-between py-3 gap-3 transition-all">
+      <header className="sticky top-14 lg:top-0 z-30 flex min-h-16 flex-col items-center justify-between gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur-md md:flex-row md:px-6">
         <div className="flex items-center gap-3 w-full md:w-auto">
           {user && (
             <Link to="/dashboard">
@@ -329,12 +329,12 @@ export function ReportPage() {
               onClick={handleShare}
               className="h-8 text-xs gap-1.5"
             >
-              <Share2 className={cn("h-3.5 w-3.5", job.is_public && "text-emerald-600")} />
+              <Share2 className={cn("h-3.5 w-3.5", job.is_public && "text-success")} />
               {job.is_public ? 'Shared' : 'Share'}
             </Button>
           )}
           {!isOwner && job.is_public && (
-            <Badge variant="outline" className="h-8 bg-emerald-50 text-emerald-700 border-emerald-200 gap-1.5">
+            <Badge variant="outline" className="h-8 gap-1.5 border-success/25 bg-success/10 text-success">
               <Share2 className="h-3 w-3" />
               Public Report
             </Badge>
@@ -361,11 +361,11 @@ export function ReportPage() {
 
         {/* OVERVIEW HERO */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Card className="overflow-hidden border-slate-800 bg-slate-950 text-white shadow-md">
+          <Card className="overflow-hidden border-[hsl(var(--ink-700))] bg-[hsl(var(--ink-950))] text-white shadow-overlay">
             <CardContent className="p-6 md:p-8">
               <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 <div className="flex-1 w-full">
-                  <Badge className="mb-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 border-none">Analysis Complete</Badge>
+                  <Badge className="mb-4 border-none bg-success/20 text-teal-100 hover:bg-success/25">Evidence ready</Badge>
                   {reportLanguage === 'nl' && (
                     <Badge className="mb-4 ml-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-100 border-none">Dutch Version</Badge>
                   )}
@@ -376,7 +376,7 @@ export function ReportPage() {
 
                   <div className="mt-6 flex flex-wrap gap-4 text-[10px] md:text-sm text-slate-300">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <CheckCircle2 className="h-4 w-4 text-teal-300" />
                       <span>Verified on {new Date(job.created_at).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -394,7 +394,7 @@ export function ReportPage() {
                     <span className="text-lg text-slate-400 font-normal">/100</span>
                   </div>
                   <div className="w-full bg-white/20 h-1.5 rounded-full mt-2">
-                    <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${job.status === 'completed' ? auditScore : 0}%` }}></div>
+                    <div className="h-1.5 rounded-full bg-teal-400" style={{ width: `${job.status === 'completed' ? auditScore : 0}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -650,31 +650,31 @@ export function ReportPage() {
               </motion.div>
             </div>
 
-            {(evidenceScreenshots.length > 0 || report?.browserUseLiveUrl) && (
+            {(evidenceScreenshots.length > 0 || report?.agentTraceUrl) && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
                 <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Camera className="h-4 w-4 text-slate-600" />
-                      Evidence
+                      <Camera className="h-4 w-4 text-primary" />
+                      Browser evidence
                     </CardTitle>
-                    <CardDescription>Browser evidence used for this audit.</CardDescription>
+                    <CardDescription>Sources and agent activity used to support this audit.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {report?.browserUseLiveUrl && (
+                    {report?.agentTraceUrl && (
                       <a
-                        href={report.browserUseLiveUrl}
+                        href={report.agentTraceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-between gap-3 rounded-md border border-slate-200 dark:border-slate-800 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-900"
                       >
-                        <span>Browser Use replay</span>
+                        <span>Hermes agent trace</span>
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    {evidenceScreenshots.length === 0 && report?.browserUseLiveUrl && (
+                    {evidenceScreenshots.length === 0 && report?.agentTraceUrl && (
                       <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground dark:border-slate-800 dark:bg-slate-900">
-                        No static screenshot URL was returned by Browser Use for this run. Use the replay link above to review the visual evidence.
+                        No static screenshot URL was returned by Hermes for this run. Use the agent trace above to review the evidence.
                       </p>
                     )}
                     {evidenceScreenshots.slice(0, 4).map((item, index) => (

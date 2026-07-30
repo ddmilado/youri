@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type Database } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,7 +35,6 @@ export function ProcessingOverlay({
     const [error, setError] = useState<string | null>(null)
     const [progressValue, setProgressValue] = useState(0)
     const [simulatedStep, setSimulatedStep] = useState(0)
-    const lastResumeCheckRef = useRef(0)
 
     const auditSteps = [
         'Initializing AI engine...',
@@ -76,24 +75,6 @@ export function ProcessingOverlay({
                 const updatedJob = data as Job
                 console.log('Job status:', updatedJob.status, 'message:', updatedJob.status_message)
                 setJob(updatedJob)
-
-                const browserUseSessionId = updatedJob.raw_data?.source === 'browser-use' ? updatedJob.raw_data?.session_id : null
-                if (updatedJob.status === 'processing' && browserUseSessionId) {
-                    const now = Date.now()
-                    if (now - lastResumeCheckRef.current > 15000) {
-                        lastResumeCheckRef.current = now
-                        supabase.functions.invoke('run-workflow', {
-                            body: {
-                                input_as_text: updatedJob.url,
-                                user_id: updatedJob.user_id,
-                                job_id: updatedJob.id,
-                                is_callback: true
-                            }
-                        }).catch((resumeError) => {
-                            console.warn('Browser Use resume check failed:', resumeError)
-                        })
-                    }
-                }
 
                 if (updatedJob.status === 'completed') {
                     console.log('Job completed! Report available:', !!updatedJob.report)
@@ -166,7 +147,6 @@ export function ProcessingOverlay({
 
         if (type === 'search') {
             console.log('Setting up search monitoring for jobId:', jobId)
-            // Initialize a mock job object for search - don't try to fetch from jobs table
             setJob({
                 id: jobId,
                 status: 'processing',
@@ -174,6 +154,14 @@ export function ProcessingOverlay({
                 title: manualSubtitle || 'Keyword Search',
                 url: manualSubtitle || 'Keyword Search'
             } as any)
+
+            let completionHandled = false
+            const handleCompletedSearch = () => {
+                if (completionHandled) return
+                completionHandled = true
+                setProgressValue(100)
+                if (onManualComplete) setTimeout(onManualComplete, 1500)
+            }
 
             const channel = supabase
                 .channel(`search-status-${jobId}`)
@@ -185,28 +173,32 @@ export function ProcessingOverlay({
                         status: payload.status
                     } as any))
 
-                    // Auto-complete when search is done
-                    if (payload.status === 'completed' && onManualComplete) {
-                        setProgressValue(100)
-                        setTimeout(() => {
-                            onManualComplete()
-                        }, 1500)
-                    }
+                    if (payload.status === 'completed') handleCompletedSearch()
+                    if (payload.status === 'failed') setError(payload.message || 'Hermes search failed')
                 })
                 .subscribe()
 
-            // Timeout fallback - auto-complete after 4 minutes if no broadcast
-            const timeout = setTimeout(() => {
-                console.log('Search timeout - auto-completing')
-                if (onManualComplete) {
-                    setProgressValue(100)
-                    onManualComplete()
+            const pollSearch = async () => {
+                const { data } = await supabase
+                    .from('hermes_agent_jobs')
+                    .select('status, error')
+                    .eq('job_id', jobId)
+                    .single()
+
+                if (data?.status === 'completed') {
+                    setJob(prev => ({ ...prev, status: 'completed', status_message: 'Search complete!' } as any))
+                    handleCompletedSearch()
+                } else if (data?.status === 'failed') {
+                    setJob(prev => ({ ...prev, status: 'failed', status_message: data.error } as any))
+                    setError(data.error || 'Hermes search failed')
                 }
-            }, 240000)
+            }
+            pollSearch()
+            const pollInterval = setInterval(pollSearch, 5000)
 
             return () => {
                 supabase.removeChannel(channel)
-                clearTimeout(timeout)
+                clearInterval(pollInterval)
             }
         }
     }, [jobId, navigate, type, onManualComplete, manualSubtitle])

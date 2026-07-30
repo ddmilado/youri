@@ -30,7 +30,6 @@ const BackgroundTasksContext = createContext<BackgroundTasksContextType | null>(
 export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
     const [tasks, setTasks] = useState<BackgroundTask[]>([])
     const subscriptions = useRef<Record<string, any>>({})
-    const resumeChecks = useRef<Record<string, number>>({})
 
     const addTask = useCallback((task: Omit<BackgroundTask, 'createdAt'>) => {
         setTasks(prev => [...prev, { ...task, createdAt: new Date() }])
@@ -96,20 +95,6 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
                                     newJob.status === 'failed' ? 'Analysis Failed' : task.statusMessage)
                         })
                     })
-                } else if (task.type === 'search') {
-                    // For search tasks, add a timeout to auto-complete them if no broadcast is received
-                    // This handles cases where the broadcast was missed or failed
-                    setTimeout(() => {
-                        const currentTask = tasks.find(t => t.id === task.id)
-                        if (currentTask && currentTask.status === 'processing') {
-                            console.log(`Auto-completing search task ${task.id} after timeout`)
-                            updateTask(task.id, {
-                                status: 'completed',
-                                progress: 100,
-                                statusMessage: 'Search completed (auto-detected)'
-                            })
-                        }
-                    }, 60000) // 1 minute timeout
                 }
 
                 channel.subscribe()
@@ -151,25 +136,40 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
                         status: data.status,
                         statusMessage: data.status_message || (data.status === 'completed' ? 'Audit Complete' : 'Audit Failed')
                     })
-                } else if (data?.status === 'processing' && data.raw_data?.source === 'browser-use' && data.raw_data?.session_id) {
-                    const now = Date.now()
-                    if (!resumeChecks.current[task.id] || now - resumeChecks.current[task.id] > 15000) {
-                        resumeChecks.current[task.id] = now
-                        supabase.functions.invoke('run-workflow', {
-                            body: {
-                                input_as_text: data.url,
-                                user_id: data.user_id,
-                                job_id: data.id,
-                                is_callback: true
-                            }
-                        }).catch((error) => {
-                            console.warn(`Browser Use resume check failed for ${task.id}:`, error)
-                        })
-                    }
                 }
             }
         }, 15000)
 
+        return () => clearInterval(pollTimer)
+    }, [tasks, updateTask])
+
+    // Keyword searches are also persisted, so a missed broadcast can be recovered safely.
+    useEffect(() => {
+        const activeSearches = tasks.filter(t => t.type === 'search' && t.status === 'processing')
+        if (activeSearches.length === 0) return
+
+        const pollSearches = async () => {
+            for (const task of activeSearches) {
+                const { data } = await supabase
+                    .from('hermes_agent_jobs')
+                    .select('status, error')
+                    .eq('job_id', task.id)
+                    .single()
+
+                if (data?.status === 'completed' || data?.status === 'failed') {
+                    updateTask(task.id, {
+                        status: data.status,
+                        progress: data.status === 'completed' ? 100 : task.progress,
+                        statusMessage: data.status === 'completed'
+                            ? 'Search complete!'
+                            : data.error || 'Hermes search failed'
+                    })
+                }
+            }
+        }
+
+        pollSearches()
+        const pollTimer = setInterval(pollSearches, 15000)
         return () => clearInterval(pollTimer)
     }, [tasks, updateTask])
 

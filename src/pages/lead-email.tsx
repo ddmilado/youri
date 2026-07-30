@@ -76,7 +76,7 @@ export function LeadEmailPage() {
         const evidenceUrl = strongestFinding?.screenshotUrl
             || job?.report?.evidenceScreenshots?.find((item) => item.url)?.url
             || job?.screenshot_url
-            || job?.report?.browserUseLiveUrl
+            || job?.report?.agentTraceUrl
             || ''
 
         const subject = `Quick tip about your international website - ${companyName}`

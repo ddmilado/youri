@@ -6,13 +6,58 @@ function extractJson(text) {
   if (!trimmed) throw new Error('Hermes returned empty output')
 
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const candidate = fenced ? fenced[1].trim() : trimmed
-  const firstBrace = candidate.indexOf('{')
-  const lastBrace = candidate.lastIndexOf('}')
-  if (firstBrace === -1 || lastBrace <= firstBrace) {
-    throw new Error(`Hermes output did not contain JSON: ${trimmed.slice(0, 500)}`)
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim())
+    } catch {
+      // Fall through and scan the complete output. Hermes may echo the prompt
+      // before printing the actual final JSON object.
+    }
   }
-  return JSON.parse(candidate.slice(firstBrace, lastBrace + 1))
+
+  const objects = []
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < trimmed.length; index++) {
+    const character = trimmed[index]
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (character === '\\') {
+        escaped = true
+      } else if (character === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (character === '"') {
+      inString = true
+    } else if (character === '{') {
+      if (depth === 0) start = index
+      depth++
+    } else if (character === '}' && depth > 0) {
+      depth--
+      if (depth === 0 && start !== -1) {
+        objects.push(trimmed.slice(start, index + 1))
+        start = -1
+      }
+    }
+  }
+
+  for (let index = objects.length - 1; index >= 0; index--) {
+    try {
+      return JSON.parse(objects[index])
+    } catch {
+      // Keep looking for the last complete JSON object in the CLI output.
+    }
+  }
+
+  throw new Error(`Hermes output did not contain valid JSON: ${trimmed.slice(0, 500)}`)
 }
 
 function outputInstructions(jobType) {

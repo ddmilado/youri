@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useBackgroundTasks } from '@/contexts/background-tasks-context'
 import { supabase, runAIWorkflow, runKeywordSearch } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -293,121 +294,137 @@ export function NewAuditPage() {
 
   return (
     <div className="app-page">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <header className="app-header">
           <div>
-            <p className="eyebrow">Create</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">New Analysis</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Start a website audit or discover companies from a targeted keyword search.
+            <p className="eyebrow">Research brief</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] md:text-4xl">What should Hermes investigate?</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Choose a research method, give Hermes a precise target, and follow the evidence as it browses.
             </p>
           </div>
+          <Badge variant="outline" className="w-fit gap-2 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-success" />
+            Browser agent ready
+          </Badge>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
+          <aside className="space-y-2" aria-label="Research method">
+            <p className="data-label mb-3 px-1">Research method</p>
+            <button
+              type="button"
+              onClick={() => setWorkflowType('url')}
+              className={`pressable w-full rounded-xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                workflowType === 'url' ? 'border-primary bg-primary/[0.055] shadow-sm' : 'border-border bg-card hover:border-foreground/20'
+              }`}
+            >
+              <span className={`grid h-9 w-9 place-items-center rounded-lg ${workflowType === 'url' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                <LinkIcon className="h-[18px] w-[18px]" />
+              </span>
+              <span className="mt-3 block text-sm font-bold">Website audit</span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">Inspect a known website with a real browser.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkflowType('keyword')}
+              className={`pressable w-full rounded-xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                workflowType === 'keyword' ? 'border-primary bg-primary/[0.055] shadow-sm' : 'border-border bg-card hover:border-foreground/20'
+              }`}
+            >
+              <span className={`grid h-9 w-9 place-items-center rounded-lg ${workflowType === 'keyword' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                <Search className="h-[18px] w-[18px]" />
+              </span>
+              <span className="mt-3 block text-sm font-bold">Company discovery</span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">Find companies from market signals and keywords.</span>
+            </button>
+          </aside>
+
           <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border/70 bg-muted/20">
-              <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-lg bg-secondary/10 text-secondary">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle>AI Lead Discovery</CardTitle>
-                  <CardDescription>Choose a workflow and provide the source input.</CardDescription>
-                </div>
-              </div>
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle>{workflowType === 'keyword' ? 'Company discovery brief' : 'Website audit brief'}</CardTitle>
+              <CardDescription>
+                {workflowType === 'keyword'
+                  ? 'Describe the companies and market you want Hermes to find.'
+                  : 'Add up to five websites. Hermes will browse and audit each one independently.'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="mb-6 grid gap-2 rounded-lg border border-border/70 bg-muted/40 p-1 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setWorkflowType('url')}
-                  className={`flex min-h-12 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-all ${workflowType === 'url'
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'
-                    }`}
-                >
-                  <LinkIcon className="h-4 w-4" />
-                  URL Analysis
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkflowType('keyword')}
-                  className={`flex min-h-12 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-all ${workflowType === 'keyword'
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'
-                    }`}
-                >
-                  <Search className="h-4 w-4" />
-                  Keyword Search
-                </button>
-              </div>
-
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="inputText">
-                      {workflowType === 'keyword' ? 'Search Keywords' : workflowType === 'translation' ? 'Website URL' : 'Website URLs'} *
+                    <Label htmlFor="inputText" className="text-sm font-semibold">
+                      {workflowType === 'keyword' ? 'Search brief' : 'Website URLs'}
                     </Label>
                     {workflowType === 'url' && (
-                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${urlCount > 5
-                        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'
-                        : 'border-border bg-muted text-muted-foreground'
-                        }`}>
-                        {urlCount}/5 URLs
+                      <span className={`rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium ${
+                        urlCount > 5 ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-border bg-muted text-muted-foreground'
+                      }`}>
+                        {urlCount} / 5
                       </span>
                     )}
                   </div>
                   <Textarea
                     id="inputText"
-                    placeholder={workflowType === 'keyword' ? "e.g. software companies Germany site:.de" : "https://example.com\nhttps://another-company.com"}
+                    placeholder={workflowType === 'keyword'
+                      ? 'Example: B2B cybersecurity companies in Germany serving manufacturers, with 20–200 employees'
+                      : 'https://example.com\nhttps://another-company.com'}
                     value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
+                    onChange={(event) => setInputText(event.target.value)}
                     required
                     disabled={loading}
-                    className="min-h-[190px] resize-y border-border/80 bg-card/80 text-base leading-7 shadow-inner"
-                    rows={7}
+                    className="min-h-[240px] resize-y bg-card font-mono text-sm leading-7"
+                    rows={9}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs leading-5 text-muted-foreground">
                     {workflowType === 'keyword'
-                      ? 'Use specific regions, industries, and search operators for cleaner results.'
-                      : 'Enter one URL per line. Batches are limited to 5 URLs.'}
+                      ? 'Include industry, location, company size, exclusions, or search operators when they matter.'
+                      : 'Use one URL per line. Include the full domain for the most reliable browser session.'}
                   </p>
                 </div>
 
-                <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {workflowType === 'keyword' ? 'Searching...' : 'Running AI Analysis...'}
-                    </>
-                  ) : workflowType === 'keyword' ? (
-                    <>
-                      <Search className="mr-2 h-5 w-5" />
-                      Find Companies
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Analyze URL
-                    </>
-                  )}
-                </Button>
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">Results stay available in your workspace history.</p>
+                  <Button type="submit" size="lg" disabled={loading}>
+                    {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : workflowType === 'keyword' ? <Search className="mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
+                    {loading ? 'Starting Hermes…' : workflowType === 'keyword' ? 'Find companies' : `Start ${urlCount > 1 ? `${urlCount} audits` : 'audit'}`}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
 
-          <aside className="surface-panel h-fit p-5">
-            <p className="text-sm font-semibold">Workflow Notes</p>
-            <div className="mt-4 space-y-4 text-sm text-muted-foreground">
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                <p className="font-semibold text-foreground">URL Analysis</p>
-                <p className="mt-1">Best for known companies or a short prospect list that needs deeper inspection.</p>
+          <aside className="surface-panel h-fit overflow-hidden">
+            <div className="border-b border-border px-5 py-4">
+              <p className="eyebrow">Evidence plan</p>
+              <h2 className="mt-1.5 text-sm font-bold">What Hermes will do</h2>
+            </div>
+            <div className="px-5 py-5">
+              <div className="evidence-rail">
+                {(workflowType === 'keyword'
+                  ? [
+                      ['Interpret the brief', 'Identify constraints and search signals'],
+                      ['Search the live web', 'Browse results and candidate websites'],
+                      ['Verify each company', 'Check relevance against your criteria'],
+                      ['Structure the findings', 'Return comparable company records'],
+                    ]
+                  : [
+                      ['Open a browser', 'Navigate the live website'],
+                      ['Inspect key journeys', 'Review content, UX, and trust signals'],
+                      ['Collect evidence', 'Capture sources behind each finding'],
+                      ['Build the audit', 'Organize risks and opportunities'],
+                    ]
+                ).map(([title, detail], index) => (
+                  <div key={title} className="relative pb-5 pl-7 last:pb-0">
+                    <span className="absolute left-0 top-0 grid h-5 w-5 place-items-center rounded-full border border-border bg-card font-mono text-[9px] font-bold text-primary">{index + 1}</span>
+                    <p className="text-sm font-semibold">{title}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
+                  </div>
+                ))}
               </div>
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                <p className="font-semibold text-foreground">Keyword Search</p>
-                <p className="mt-1">Best for finding new companies from market, region, or industry signals.</p>
-              </div>
+            </div>
+            <div className="border-t border-border bg-muted/25 px-5 py-4 text-xs leading-5 text-muted-foreground">
+              You can minimize the run at any time. Hermes continues on the VPS and returns the result here.
             </div>
           </aside>
         </div>

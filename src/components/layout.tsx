@@ -3,35 +3,60 @@ import { useAuth } from '@/contexts/auth-context'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { LayoutDashboard, Plus, History, Settings, LogOut, Moon, Sun, Menu, Search, BookOpen, Users } from 'lucide-react'
+import {
+  BookOpen,
+  ChevronRight,
+  FileSearch,
+  History,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+  Users,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Users, label: 'Leads', path: '/leads' },
-  { icon: Plus, label: 'New Audit', path: '/new' },
-  { icon: History, label: 'Audit Results', path: '/jobs' },
-  { icon: Search, label: 'Find People', path: '/find-people' },
-  { icon: BookOpen, label: 'Documentation', path: '/docs' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+const navGroups = [
+  {
+    label: 'Workspace',
+    items: [
+      { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
+      { icon: FileSearch, label: 'Research', path: '/new' },
+      { icon: History, label: 'Results', path: '/jobs' },
+      { icon: Users, label: 'Leads', path: '/leads' },
+    ],
+  },
+  {
+    label: 'Enrichment',
+    items: [{ icon: Search, label: 'Find people', path: '/find-people' }],
+  },
+  {
+    label: 'System',
+    items: [
+      { icon: BookOpen, label: 'Documentation', path: '/docs' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
+    ],
+  },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { theme, setTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false)
 
-  useEffect(() => {
-    setSidebarOpen(false)
-  }, [location.pathname])
+  useEffect(() => setSidebarOpen(false), [location.pathname])
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
-
   const handleSignOut = async () => {
     try {
       await signOut()
@@ -42,141 +67,175 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Mobile Bottom Nav Items
-  const mobileNavItems = [
-    { icon: LayoutDashboard, label: 'Home', path: '/dashboard' },
-    { icon: Users, label: 'Leads', path: '/leads' },
-    { icon: Plus, label: 'New', path: '/new', isAction: true },
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    'Workspace member'
+  const initials = displayName
+    .split(' ')
+    .map((part: string) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
+  const isActive = (path: string) =>
+    path === '/dashboard'
+      ? location.pathname === path
+      : location.pathname.startsWith(path)
+
+  const mobileNav = [
+    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
     { icon: History, label: 'Results', path: '/jobs' },
-    { icon: Menu, label: 'Menu', action: () => setSidebarOpen(true) },
+    { icon: Plus, label: 'Research', path: '/new', action: true },
+    { icon: Users, label: 'Leads', path: '/leads' },
   ]
 
   return (
-    <div className="app-shell min-h-screen flex flex-col">
-      {/* Mobile Top Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-xl border-b border-border/70 z-50 flex items-center px-4 justify-between transition-all duration-200">
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-md border border-border bg-white dark:bg-slate-950">
-            <img src="/logo.svg" alt="Logo" className="h-5 w-5 object-contain" />
+    <div className="app-shell min-h-screen">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform focus:translate-y-0"
+      >
+        Skip to content
+      </a>
+
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur lg:hidden">
+        <Link to="/dashboard" className="flex items-center gap-2.5" aria-label="YourInt overview">
+          <div className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-white dark:bg-slate-950">
+            <img src="/logo.svg" alt="" className="h-5 w-5 object-contain" />
           </div>
-          <span className="font-bold text-lg tracking-tight">YourIntAI</span>
+          <div className="leading-none">
+            <span className="block text-sm font-bold tracking-tight">YourInt</span>
+            <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Research OS</span>
+          </div>
         </Link>
-        <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9 rounded-full">
+        <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle color theme">
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
-      </div>
+      </header>
 
-      {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-72 bg-card/95 backdrop-blur-xl border-r border-border/80 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-xl lg:shadow-none",
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col border-r border-border bg-card transition-transform duration-200 ease-out lg:translate-x-0',
+          sidebarOpen ? 'translate-x-0 shadow-overlay' : '-translate-x-full'
         )}
+        aria-label="Primary navigation"
       >
-        <div className="p-5 flex items-center justify-between border-b border-border/60">
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-white shadow-sm dark:bg-slate-950">
-              <img src="/logo.svg" alt="Logo" className="h-7 w-7 object-contain" />
+        <div className="flex h-[76px] items-center justify-between px-5">
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-3" aria-label="YourInt overview">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-white dark:bg-slate-950">
+              <img src="/logo.svg" alt="" className="h-6 w-6 object-contain" />
             </div>
-            <div className="leading-tight">
-              <span className="block text-lg font-bold tracking-tight">YourIntAI</span>
-              <span className="text-xs font-medium text-muted-foreground">Lead intelligence</span>
+            <div className="min-w-0 leading-none">
+              <span className="block text-base font-bold tracking-tight">YourInt</span>
+              <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Research OS</span>
             </div>
           </Link>
-          {/* Close button for mobile drawer mode */}
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
-            <Plus className="h-5 w-5 rotate-45" />
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <nav className="px-3 space-y-1.5 mt-4">
-          {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path)
-            return (
-              <Link key={item.path} to={item.path}>
-                <Button
-                  variant={item.path === '/new' ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'h-10 w-full justify-start relative overflow-hidden px-3',
-                    item.path === '/new' && 'mb-3 text-secondary-foreground shadow-sm',
-                    item.path !== '/new' && 'text-muted-foreground',
-                    isActive && item.path !== '/new' && 'bg-secondary/10 text-foreground',
-                    isActive && item.path === '/new' && 'ring-2 ring-secondary/25'
-                  )}
-                >
-                  {isActive && item.path !== '/new' && <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-secondary" />}
-                  <item.icon className={cn(
-                    "mr-3 h-4 w-4",
-                    item.path === '/new' ? "text-secondary-foreground" : isActive ? "text-secondary" : "text-muted-foreground"
-                  )} />
-                  {item.label}
-                </Button>
-              </Link>
-            )
-          })}
+        <div className="px-3">
+          <Button asChild className="w-full justify-between">
+            <Link to="/new">
+              <span className="flex items-center">
+                <Plus className="mr-2 h-4 w-4" />
+                Start research
+              </span>
+              <ChevronRight className="h-4 w-4 opacity-70" />
+            </Link>
+          </Button>
+        </div>
+
+        <nav className="mt-5 flex-1 overflow-y-auto px-3 pb-4">
+          {navGroups.map((group) => (
+            <div key={group.label} className="mb-5">
+              <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/80">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = isActive(item.path)
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'pressable relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-[background-color,color] duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        active && 'bg-primary/[0.07] font-semibold text-foreground'
+                      )}
+                    >
+                      {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" />}
+                      <item.icon className={cn('h-[18px] w-[18px]', active && 'text-primary')} />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="absolute bottom-5 left-3 right-3 space-y-2 border-t border-border/80 pt-4">
-          <Button variant="ghost" className="w-full justify-start hidden lg:flex" onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun className="mr-3 h-4 w-4" /> : <Moon className="mr-3 h-4 w-4" />}
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setSignOutDialogOpen(true)}>
-            <LogOut className="mr-3 h-5 w-5" />
-            Sign Out
-          </Button>
+        <div className="border-t border-border p-3">
+          <div className="mb-2 flex items-center gap-3 rounded-lg px-2 py-2">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{displayName}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="flex-1 justify-start text-muted-foreground" onClick={toggleTheme}>
+              {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => setSignOutDialogOpen(true)} aria-label="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className={cn(
-        'flex-1 transition-all duration-200 min-h-screen',
-        'lg:ml-72',
-        'pt-14 pb-20 lg:pt-0 lg:pb-0' // Mobile: pad top for header, bottom for nav
-      )}>
+      <main id="main-content" tabIndex={-1} className="min-h-screen pb-20 pt-14 outline-none lg:ml-[248px] lg:pb-0 lg:pt-0">
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/70 pb-safe">
-        <div className="flex items-center justify-between px-2 h-[3.5rem] pb-1">
-          {mobileNavItems.map((item, index) => {
-            const isActive = item.path && location.pathname.startsWith(item.path)
-
-            if (item.isAction) {
-              return (
-                <div key={index} className="relative -top-5">
-                  <Link to={item.path}>
-                    <div className="h-14 w-14 rounded-full bg-secondary shadow-lg shadow-cyan-900/15 flex items-center justify-center text-white hover:scale-105 transition-transform">
-                      <Plus className="h-7 w-7" />
-                    </div>
-                  </Link>
-                </div>
-              )
-            }
-
-            return (
-              <div key={index} className="flex-1 flex justify-center">
-                <button
-                  onClick={() => item.action ? item.action() : navigate(item.path || '#')}
-                  className={cn(
-                    "flex flex-col items-center justify-center w-full h-full space-y-0.5",
-                    isActive ? "text-secondary" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <item.icon className={cn("h-5 w-5 transition-all", isActive && "scale-110")} />
-                  <span className="text-[10px] font-medium">{item.label}</span>
-                </button>
-              </div>
-            )
-          })}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-safe backdrop-blur lg:hidden" aria-label="Mobile navigation">
+        <div className="grid h-16 grid-cols-5 px-1">
+          {mobileNav.slice(0, 2).map((item) => (
+            <MobileNavItem key={item.path} {...item} active={isActive(item.path)} />
+          ))}
+          <Link to="/new" className="relative flex items-center justify-center" aria-label="Start research">
+            <span className="absolute -top-4 grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-overlay">
+              <Plus className="h-6 w-6" />
+            </span>
+            <span className="mt-9 text-[10px] font-semibold text-primary">Research</span>
+          </Link>
+          {mobileNav.slice(3).map((item) => (
+            <MobileNavItem key={item.path} {...item} active={isActive(item.path)} />
+          ))}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="pressable flex min-h-11 flex-col items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground"
+            aria-label="Open full menu"
+          >
+            <Menu className="h-5 w-5" />
+            Menu
+          </button>
         </div>
       </nav>
 
-      {/* Mobile Overlay Backdrop */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-200"
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -192,5 +251,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
         onConfirm={handleSignOut}
       />
     </div>
+  )
+}
+
+function MobileNavItem({
+  icon: Icon,
+  label,
+  path,
+  active,
+}: {
+  icon: typeof LayoutDashboard
+  label: string
+  path: string
+  active: boolean
+}) {
+  return (
+    <Link
+      to={path}
+      className={cn(
+        'pressable flex min-h-11 flex-col items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground',
+        active && 'text-primary'
+      )}
+      aria-current={active ? 'page' : undefined}
+    >
+      <Icon className="h-5 w-5" />
+      {label}
+    </Link>
   )
 }

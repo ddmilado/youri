@@ -76,7 +76,7 @@ export function LoginPage() {
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-300">Evidence-led market research</p>
             <h1 className="mt-3 max-w-md text-4xl font-bold tracking-[-0.04em] text-balance">See the market through verified evidence.</h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/70">
-              Give Hermes a website or market question. Follow its browser activity, inspect the sources, and turn useful findings into action.
+              Give an agent a website or market question. Follow its browser activity, inspect the sources, and turn useful findings into action.
             </p>
             <div className="mt-8 grid gap-3 text-sm text-white/75">
               <div className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-blue-300" /> Live website browsing on every audit</div>

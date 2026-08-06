@@ -53,7 +53,7 @@ async function submitHermesJob(job: Record<string, unknown>): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(
-      `Hermes job submission failed: ${response.status} ${await response
+      `Agent job submission failed: ${response.status} ${await response
         .text()}`,
     );
   }
@@ -123,7 +123,7 @@ serve(async (req) => {
       });
     };
 
-    await updateStatus("Submitting keyword research to Hermes...");
+    await updateStatus("Submitting keyword research to the agent...");
     const metadata = {
       search_query: query,
       creator_name: creator_name || null,
@@ -139,7 +139,7 @@ serve(async (req) => {
         metadata,
       }, { onConflict: "job_id" });
     if (trackingError) {
-      throw new Error(`Failed to track Hermes job: ${trackingError.message}`);
+      throw new Error(`Failed to track agent job: ${trackingError.message}`);
     }
 
     await submitHermesJob({
@@ -153,7 +153,7 @@ serve(async (req) => {
       metadata,
     });
 
-    await updateStatus("Hermes is browsing the web for matching companies...");
+    await updateStatus("Agent is browsing the web for matching companies...");
     await supabase.removeChannel(statusChannel);
     statusChannel = null;
 
@@ -162,7 +162,7 @@ serve(async (req) => {
         success: true,
         mode: "hermes",
         search_id: effectiveSearchId,
-        message: "Hermes keyword research started",
+        message: "Agent keyword research started",
       }),
       { status: 202, headers: corsHeaders },
     );

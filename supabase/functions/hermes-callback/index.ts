@@ -79,7 +79,7 @@ function normalizeAuditReport(
   runId?: string | null,
 ) {
   if (!Array.isArray(candidate.sections)) {
-    throw new Error("Hermes audit report must contain sections");
+    throw new Error("Audit report must contain sections");
   }
 
   const sections = candidate.sections.map((sectionValue) => {
@@ -96,7 +96,7 @@ function normalizeAuditReport(
           problem: String(finding.problem || "Issue identified"),
           explanation: String(
             finding.explanation || finding.impact ||
-              "Hermes identified a website risk.",
+              "The agent identified a website risk.",
           ),
           recommendation: String(
             finding.recommendation || "Review and correct this issue.",
@@ -107,7 +107,7 @@ function normalizeAuditReport(
           sourceUrl: String(finding.sourceUrl || targetUrl),
           verificationNote: String(
             finding.verificationNote ||
-              "Verified by Hermes using the live website.",
+              "Verified against the live website.",
           ),
         };
       }),
@@ -134,7 +134,7 @@ function normalizeAuditReport(
       ? candidate.evidenceScreenshots
       : [],
     conclusion: String(
-      candidate.conclusion || "The Hermes website audit is complete.",
+      candidate.conclusion || "The website audit is complete.",
     ),
     score,
     agentProvider: "hermes",
@@ -210,7 +210,7 @@ serve(async (req) => {
         const rows = results.map((result) => ({
           user_id: payload.user_id,
           search_query: String(
-            metadata.search_query || "Hermes keyword search",
+            metadata.search_query || "Agent keyword search",
           ),
           company_name: result.company_name,
           website: result.website,
@@ -251,7 +251,7 @@ serve(async (req) => {
       const { error } = await supabase.from("jobs").update({
         status: "completed",
         report,
-        status_message: "Hermes audit completed!",
+        status_message: "Audit completed!",
         completed_at: new Date().toISOString(),
         score: report.score,
         screenshot_url: screenshotUrl?.url || null,
@@ -270,7 +270,7 @@ serve(async (req) => {
     if (failed && payload.job_type === "url_audit") {
       await supabase.from("jobs").update({
         status: "failed",
-        status_message: `Hermes audit failed: ${
+        status_message: `Audit failed: ${
           String(payload.error || "Unknown error").slice(0, 120)
         }`,
       }).eq("id", payload.job_id).eq("user_id", payload.user_id);
@@ -294,9 +294,9 @@ serve(async (req) => {
         id: payload.job_id,
         status: failed ? "failed" : "completed",
         message: failed
-          ? payload.error || "Hermes job failed"
+          ? payload.error || "Agent job failed"
           : payload.job_type === "url_audit"
-          ? "Hermes audit completed!"
+          ? "Audit completed!"
           : "Search complete!",
         count: resultCount,
       },

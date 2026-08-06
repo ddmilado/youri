@@ -668,13 +668,13 @@ export function ReportPage() {
                         rel="noopener noreferrer"
                         className="flex items-center justify-between gap-3 rounded-md border border-slate-200 dark:border-slate-800 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-900"
                       >
-                        <span>Hermes agent trace</span>
+                        <span>Agent trace</span>
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
                     {evidenceScreenshots.length === 0 && report?.agentTraceUrl && (
                       <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground dark:border-slate-800 dark:bg-slate-900">
-                        No static screenshot URL was returned by Hermes for this run. Use the agent trace above to review the evidence.
+                        No static screenshot URL was returned for this run. Use the agent trace above to review the evidence.
                       </p>
                     )}
                     {evidenceScreenshots.slice(0, 4).map((item, index) => (

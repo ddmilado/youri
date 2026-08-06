@@ -508,7 +508,7 @@ function JobsPageContent() {
         <div>
           <p className="eyebrow">Evidence library</p>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] md:text-4xl">Research results</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Review completed website audits, discovery searches, and the evidence Hermes returned.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Review completed website audits, discovery searches, and the evidence your agents returned.</p>
         </div>
         <div className="ml-auto flex items-center gap-2 w-full md:w-auto justify-end">
           <Link to="/new" className="w-full md:w-auto">

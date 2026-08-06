@@ -33,6 +33,7 @@ const Settings = lazy(() => import('@/pages/settings').then(m => ({ default: m.S
 const Debug = lazy(() => import('@/pages/debug').then(m => ({ default: m.DebugPage })))
 const FindPeople = lazy(() => import('@/pages/find-people').then(m => ({ default: m.FindPeoplePage })))
 const Docs = lazy(() => import('@/pages/docs').then(m => ({ default: m.DocsPage })))
+const DocsSimple = lazy(() => import('@/pages/docs-simple').then(m => ({ default: m.DocsSimplePage })))
 
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -208,6 +209,18 @@ function App() {
                       <Layout>
                         <Suspense fallback={<LoadingFallback />}>
                           <Settings />
+                        </Suspense>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/docs/simple"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <DocsSimple />
                         </Suspense>
                       </Layout>
                     </ProtectedRoute>

@@ -298,9 +298,9 @@ export function NewAuditPage() {
         <header className="app-header">
           <div>
             <p className="eyebrow">Research brief</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] md:text-4xl">What should Hermes investigate?</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] md:text-4xl">What should the agent investigate?</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Choose a research method, give Hermes a precise target, and follow the evidence as it browses.
+              Choose a research method, give the agent a precise target, and follow the evidence as it browses.
             </p>
           </div>
           <Badge variant="outline" className="w-fit gap-2 py-1.5">
@@ -345,8 +345,8 @@ export function NewAuditPage() {
               <CardTitle>{workflowType === 'keyword' ? 'Company discovery brief' : 'Website audit brief'}</CardTitle>
               <CardDescription>
                 {workflowType === 'keyword'
-                  ? 'Describe the companies and market you want Hermes to find.'
-                  : 'Add up to five websites. Hermes will browse and audit each one independently.'}
+                  ? 'Describe the companies and market you want the agent to find.'
+                  : 'Add up to five websites. The agent will browse and audit each one independently.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
@@ -387,7 +387,7 @@ export function NewAuditPage() {
                   <p className="text-xs text-muted-foreground">Results stay available in your workspace history.</p>
                   <Button type="submit" size="lg" disabled={loading}>
                     {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : workflowType === 'keyword' ? <Search className="mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                    {loading ? 'Starting Hermes…' : workflowType === 'keyword' ? 'Find companies' : `Start ${urlCount > 1 ? `${urlCount} audits` : 'audit'}`}
+                    {loading ? 'Starting agent…' : workflowType === 'keyword' ? 'Find companies' : `Start ${urlCount > 1 ? `${urlCount} audits` : 'audit'}`}
                   </Button>
                 </div>
               </form>
@@ -397,7 +397,7 @@ export function NewAuditPage() {
           <aside className="surface-panel h-fit overflow-hidden">
             <div className="border-b border-border px-5 py-4">
               <p className="eyebrow">Evidence plan</p>
-              <h2 className="mt-1.5 text-sm font-bold">What Hermes will do</h2>
+              <h2 className="mt-1.5 text-sm font-bold">What the agent will do</h2>
             </div>
             <div className="px-5 py-5">
               <div className="evidence-rail">
@@ -424,7 +424,7 @@ export function NewAuditPage() {
               </div>
             </div>
             <div className="border-t border-border bg-muted/25 px-5 py-4 text-xs leading-5 text-muted-foreground">
-              You can minimize the run at any time. Hermes continues on the VPS and returns the result here.
+              You can minimize the run at any time. The agent continues on the VPS and returns the result here.
             </div>
           </aside>
         </div>

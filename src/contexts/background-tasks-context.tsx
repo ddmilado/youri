@@ -162,7 +162,7 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
                         progress: data.status === 'completed' ? 100 : task.progress,
                         statusMessage: data.status === 'completed'
                             ? 'Search complete!'
-                            : data.error || 'Hermes search failed'
+                            : data.error || 'Agent search failed'
                     })
                 }
             }

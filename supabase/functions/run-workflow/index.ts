@@ -57,7 +57,7 @@ async function submitHermesJob(job: Record<string, unknown>): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(
-      `Hermes job submission failed: ${response.status} ${await response
+      `Agent job submission failed: ${response.status} ${await response
         .text()}`,
     );
   }
@@ -146,7 +146,7 @@ serve(async (req) => {
         title,
         url: targetUrl,
         status: "pending",
-        status_message: "Initializing Hermes audit...",
+        status_message: "Initializing audit...",
       }).select().single();
       if (error || !data) {
         throw new Error(
@@ -174,7 +174,7 @@ serve(async (req) => {
           success: currentJob.status !== "failed",
           job_id: jobId,
           phase: currentJob.status,
-          message: currentJob.status_message || "Hermes audit is running.",
+          message: currentJob.status_message || "Agent audit is running.",
         }),
         { headers: corsHeaders },
       );
@@ -191,12 +191,12 @@ serve(async (req) => {
         metadata,
       }, { onConflict: "job_id" });
     if (trackingError) {
-      throw new Error(`Failed to track Hermes job: ${trackingError.message}`);
+      throw new Error(`Failed to track agent job: ${trackingError.message}`);
     }
 
     const { error: updateError } = await supabase.from("jobs").update({
       status: "processing",
-      status_message: "Hermes is opening and auditing the website...",
+      status_message: "Agent is opening and auditing the website...",
       crawl_status: "completed",
       raw_data: {
         source: "hermes",
@@ -227,7 +227,7 @@ serve(async (req) => {
         id: jobId,
         status: "processing",
         message:
-          "Hermes is browsing the live website and preparing the audit...",
+          "Agent is browsing the live website and preparing the audit...",
       },
     }, { httpSend: true }).catch((error: unknown) => {
       console.error("Could not broadcast Hermes audit status:", error);
@@ -239,7 +239,7 @@ serve(async (req) => {
         success: true,
         job_id: jobId,
         phase: "hermes-audit",
-        message: "Hermes URL audit started.",
+        message: "Agent audit started.",
       }),
       { status: 202, headers: corsHeaders },
     );
@@ -248,7 +248,7 @@ serve(async (req) => {
     if (supabaseForFailure && jobIdForFailure) {
       await supabaseForFailure.from("jobs").update({
         status: "failed",
-        status_message: `Hermes audit failed to start: ${
+        status_message: `Audit failed to start: ${
           error instanceof Error
             ? error.message.slice(0, 100)
             : String(error).slice(0, 100)

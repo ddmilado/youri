@@ -150,7 +150,7 @@ export function DashboardPage() {
               Good {getTimeOfDay()}{firstName ? `, ${firstName}` : ''}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              See what Hermes is investigating, review completed evidence, and turn useful findings into opportunities.
+              See what your agents are investigating, review completed evidence, and turn useful findings into opportunities.
             </p>
           </div>
           <Button asChild>
@@ -164,7 +164,7 @@ export function DashboardPage() {
         <section aria-label="Workspace summary" className="surface-panel mb-6 overflow-hidden">
           <div className="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
             <SummaryMetric label="Research runs" value={totalResearch} detail="Audits and keyword searches" />
-            <SummaryMetric label="In progress" value={activeJobs.length} detail="Hermes is actively browsing" tone="info" />
+            <SummaryMetric label="In progress" value={activeJobs.length} detail="Agent is actively browsing" tone="info" />
             <SummaryMetric label="Evidence ready" value={completedJobs.length} detail="Completed audit reports" tone="success" />
             <SummaryMetric label="Saved leads" value={leadResults?.length || 0} detail="Opportunities in your pipeline" />
           </div>
@@ -264,7 +264,7 @@ export function DashboardPage() {
                       <TableCell colSpan={5} className="h-56 text-center">
                         <FileSearch className="mx-auto h-8 w-8 text-primary" />
                         <p className="mt-3 font-semibold">No research runs yet</p>
-                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Give Hermes a website or keyword brief to begin building your evidence library.</p>
+                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Give an agent a website or keyword brief to begin building your evidence library.</p>
                         <Button asChild size="sm" className="mt-4"><Link to="/new">Start first research</Link></Button>
                       </TableCell>
                     </TableRow>
@@ -275,19 +275,19 @@ export function DashboardPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="surface-panel overflow-hidden" aria-labelledby="hermes-status-heading">
+            <section className="surface-panel overflow-hidden" aria-labelledby="agent-status-heading">
               <div className="border-b border-border px-5 py-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="eyebrow">Hermes activity</p>
-                    <h2 id="hermes-status-heading" className="mt-1.5 text-lg font-bold tracking-tight">
+                    <p className="eyebrow">Agent activity</p>
+                    <h2 id="agent-status-heading" className="mt-1.5 text-lg font-bold tracking-tight">
                       {latestActive ? 'Browsing now' : 'Agent ready'}
                     </h2>
                   </div>
                   <span className={cn('h-2.5 w-2.5 rounded-full', latestActive ? 'animate-pulse bg-info' : 'bg-success')} />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {latestActive ? latestActive.title : 'No active jobs. Hermes is ready for a new research brief.'}
+                  {latestActive ? latestActive.title : 'No active jobs. The agent is ready for a new research brief.'}
                 </p>
               </div>
               <div className="px-5 py-5">

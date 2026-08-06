@@ -175,7 +175,7 @@ export function ProcessingOverlay({
                     }))
 
                     if (payload.status === 'completed') handleCompletedSearch()
-                    if (payload.status === 'failed') setError(payload.message || 'Hermes search failed')
+                    if (payload.status === 'failed') setError(payload.message || 'Agent search failed')
                 })
                 .subscribe()
 
@@ -191,7 +191,7 @@ export function ProcessingOverlay({
                     handleCompletedSearch()
                 } else if (data?.status === 'failed') {
                     setJob(prev => ({ ...(prev || {}), status: 'failed', status_message: data.error }))
-                    setError(data.error || 'Hermes search failed')
+                    setError(data.error || 'Agent search failed')
                 }
             }
             pollSearch()
@@ -286,7 +286,7 @@ export function ProcessingOverlay({
                                 {isFailed ? <X className="h-5 w-5" /> : isCompleted ? <CheckCircle2 className="h-5 w-5" /> : type === 'audit' ? <Globe2 className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                             </span>
                             <div className="min-w-0">
-                                <p className="eyebrow">{type === 'audit' ? 'Hermes website audit' : 'Hermes company discovery'}</p>
+                                <p className="eyebrow">{type === 'audit' ? 'Agent website audit' : 'Agent company discovery'}</p>
                                 <h3 className="mt-1 text-lg font-bold tracking-tight">
                                     {isFailed ? 'Research failed' : isCompleted ? 'Evidence ready' : 'Research in progress'}
                                 </h3>
@@ -319,7 +319,7 @@ export function ProcessingOverlay({
                                         transition={{ duration: 0.14 }}
                                         className={cn('text-sm font-semibold', isFailed && 'text-destructive')}
                                     >
-                                        {isFailed ? error || 'Hermes could not complete this research.' : isCompleted ? 'The result has been returned to your workspace.' : job?.status_message || loadingSteps[simulatedStep]}
+                                        {isFailed ? error || 'The agent could not complete this research.' : isCompleted ? 'The result has been returned to your workspace.' : job?.status_message || loadingSteps[simulatedStep]}
                                     </motion.p>
                                 </AnimatePresence>
                                 <span className="font-mono text-[11px] text-muted-foreground">{Math.round(isFinished ? 100 : progressValue)}%</span>
